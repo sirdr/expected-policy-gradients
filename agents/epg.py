@@ -48,8 +48,11 @@ class Actor(Model):
             h = tf.layers.dense(h, self.num_actions, activation=None, kernel_initializer=out_weight_init, bias_initializer=out_weight_init)
             output = self.max_action*tf.nn.tanh(h)
 
-            output_logstd = tf.layers.dense(obs, self.num_actions, activation=None, kernel_initializer=out_weight_init, bias_initializer=out_weight_init)
-        return output, output_logstd
+            if not self.discrete:
+                output_logstd = tf.layers.dense(obs, self.num_actions, activation=None, kernel_initializer=out_weight_init, bias_initializer=out_weight_init)
+                return [output, output_logstd]
+            else:
+                return [output]
 
 
 class Critic(Model):
@@ -126,7 +129,7 @@ class EPG(PG):
     def get_policy_from_actor_op(self, actor, obs):
 
         if self.discrete:
-            action_logits = actor(obs)#training=self.training_placeholder)
+            action_logits = actor(obs)[0]#training=self.training_placeholder)
             sampled_action = tf.squeeze(tf.multinomial(action_logits, 1), axis = 1)
             return action_logits, sampled_action, None
         else:
@@ -344,6 +347,7 @@ class EPG(PG):
         num_actions = actions.shape[0]
         observations = np.tile(observation, (num_actions, 1))
         actions = actions[:, None]
+        print(actions.shape)
         weights = weights[:, None]
 
         _ , loss_integral, loss_integrand_weighted, prob, critic_output = self.sess.run([self.train_op, self.loss_integral, self.loss_integrand_weighted, self.prob, self.critic_output], feed_dict={
