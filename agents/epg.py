@@ -291,8 +291,7 @@ class EPG(PG):
             action = np.clip(action, self.action_low, self.action_high)
         else:
             print(action.shape)
-        action = action[0]
-        print(action.shape)
+        action = action[0].item()
         return action, q
 
     def evaluate_policy(self, env=None, eval_episodes=10):
