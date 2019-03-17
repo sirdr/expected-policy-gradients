@@ -154,7 +154,7 @@ class EPG(PG):
     def add_actor_loss_op(self):
         self.loss_integrand = tf.multiply(tf.expand_dims(self.prob, axis=1), self.critic_output)
         self.loss_integrand_weighted = tf.multiply(self.weights_placeholder, self.loss_integrand)
-        self.loss_integral = tf.reduce_mean(self.loss_integrand_weighted)
+        self.loss_integral = tf.reduce_sum(self.loss_integrand_weighted)
         self.loss = -1*self.loss_integral
 
     def add_actor_optimizer_op(self):
@@ -326,26 +326,26 @@ class EPG(PG):
         if self.quadrature == "riemann":
             #actions = np.linspace(-1, 1, num=1000)
             #actions = np.random.uniform(self.action_low,self.action_high, size=100000)
-            actions = np.linspace(self.action_low,self.action_high, num=100000)
+            actions = np.linspace(self.action_low,self.action_high, num=10000)
             weights = (actions[1:]-actions[:-1])
             actions = (actions[:-1]+actions[1:])/.2
         else:
             results = integrate.quad(function_to_integrate, self.action_low, self.action_high, args=(observation,), full_output=1, maxp1=100)
 
 
-        #results = integrate.quadrature(function_to_integrate, self.action_low, self.action_high, args=(observation,), vec_func=False)
+        results = integrate.quadrature(function_to_integrate, self.action_low, self.action_high, args=(observation,), vec_func=False)
         num_actions = actions.shape[0]
         observations = np.tile(observation, (num_actions, 1))
         actions = actions[:, None]
         weights = weights[:, None]
 
-        _ , loss_integral, loss_integrand, prob, critic_output = self.sess.run([self.train_op, self.loss_integral, self.loss_integrand, self.prob, self.critic_output], feed_dict={
+        _ , loss_integral, loss_integrand_weighted, prob, critic_output = self.sess.run([self.train_op, self.loss_integral, self.loss_integrand_weighted, self.prob, self.critic_output], feed_dict={
                                             self.observation_placeholder : observations,
                                             self.action_placeholder : actions,
                                             self.weights_placeholder: weights})
 
         #print("shapes --- prob: {} | critic_output: {} | loss_integrand: {}".format(prob.shape, critic_output.shape, loss_integrand.shape))
-        print("integral --- riemann: {} ".format(loss_integral))
+        print("integral --- riemann: {} | scipy quadrature: {} ".format(loss_integral, results[0]))
         # print("")
 
     def train_critic(self, observation, action, reward, next_observation, done):
