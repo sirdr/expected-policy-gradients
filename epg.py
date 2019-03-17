@@ -104,7 +104,7 @@ def learn(env, config, seed = 7):
         new_observation, reward, done, _ = env.step(action) 
         done_bool = False if episode_timesteps + 1 == env._max_episode_steps else done
         episode_reward += reward
-        action = np.array([action])[:, None]
+        action = np.array([action])
         agent.train_critic(observation, action, reward, new_observation, done_bool)
 
         agent.update_targets()
