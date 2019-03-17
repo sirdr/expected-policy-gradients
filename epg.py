@@ -99,13 +99,12 @@ def learn(env, config, seed = 7):
             action = env.action_space.sample()
         else:
             action, _ = agent.act(np.array(observation))
-            #action = action[0]
 
         # Perform action
         new_observation, reward, done, _ = env.step(action) 
         done_bool = False if episode_timesteps + 1 == env._max_episode_steps else done
         episode_reward += reward
-
+        action = np.array([action])[:, None]
         agent.train_critic(observation, action, reward, new_observation, done_bool)
 
         agent.update_targets()

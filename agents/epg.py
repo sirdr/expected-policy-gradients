@@ -289,8 +289,6 @@ class EPG(PG):
             q = None
         if not self.discrete:
             action = np.clip(action, self.action_low, self.action_high)
-        else:
-            print(action.shape)
         action = action[0].item()
         return action, q
 
