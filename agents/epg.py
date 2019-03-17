@@ -46,11 +46,11 @@ class Actor(Model):
             h = tf.nn.relu(h)
             out_weight_init = tf.initializers.random_uniform(-3e-3, 3e-3)
             h = tf.layers.dense(h, self.num_actions, activation=None, kernel_initializer=out_weight_init, bias_initializer=out_weight_init)
-            output = self.max_action*tf.nn.tanh(h)
+            output = tf.nn.tanh(h)
 
             if not self.discrete:
                 output_logstd = tf.layers.dense(obs, self.num_actions, activation=None, kernel_initializer=out_weight_init, bias_initializer=out_weight_init)
-                return [output, output_logstd]
+                return [self.max_action*output, output_logstd]
             else:
                 return [output]
 
