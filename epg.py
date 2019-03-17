@@ -99,7 +99,7 @@ def learn(env, config, seed = 7):
             action = env.action_space.sample()
         else:
             action, _ = agent.act(np.array(observation))
-            action = action[0]
+            #action = action[0]
 
         # Perform action
         new_observation, reward, done, _ = env.step(action) 
