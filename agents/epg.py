@@ -328,7 +328,7 @@ class EPG(PG):
             #actions = np.random.uniform(self.action_low,self.action_high, size=100000)
             actions = np.linspace(self.action_low,self.action_high, num=10000)
             weights = (actions[1:]-actions[:-1])
-            actions = (actions[:-1]+actions[1:])/.2
+            actions = (actions[:-1]+actions[1:])/2.
         else:
             results = integrate.quad(function_to_integrate, self.action_low, self.action_high, args=(observation,), full_output=1, maxp1=100)
 
