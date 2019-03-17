@@ -333,7 +333,7 @@ class EPG(PG):
             results = integrate.quad(function_to_integrate, self.action_low, self.action_high, args=(observation,), full_output=1, maxp1=100)
 
 
-        results = integrate.quadrature(function_to_integrate, self.action_low, self.action_high, args=(observation,), vec_func=False)
+        #results = integrate.quadrature(function_to_integrate, self.action_low, self.action_high, args=(observation,), vec_func=False)
         num_actions = actions.shape[0]
         observations = np.tile(observation, (num_actions, 1))
         actions = actions[:, None]
@@ -345,7 +345,7 @@ class EPG(PG):
                                             self.weights_placeholder: weights})
 
         #print("shapes --- prob: {} | critic_output: {} | loss_integrand: {}".format(prob.shape, critic_output.shape, loss_integrand.shape))
-        print("integral --- riemann: {} | scipy quadrature: {} ".format(loss_integral, results[0]))
+        print("integral --- riemann: {}".format(loss_integral))
         # print("")
 
     def train_critic(self, observation, action, reward, next_observation, done):
