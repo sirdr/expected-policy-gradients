@@ -287,8 +287,8 @@ class EPG(PG):
         else:
             action = self.sess.run(self.sampled_actions, feed_dict=feed_dict)
             q = None
-
-        action = np.clip(action, self.action_low, self.action_high)
+        if not self.discrete:
+            action = np.clip(action, self.action_low, self.action_high)
         return action, q
 
     def evaluate_policy(self, env=None, eval_episodes=10):
