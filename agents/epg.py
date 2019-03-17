@@ -326,7 +326,7 @@ class EPG(PG):
         if self.quadrature == "riemann":
             #actions = np.linspace(-1, 1, num=1000)
             #actions = np.random.uniform(self.action_low,self.action_high, size=100000)
-            actions = np.linspace(self.action_low,self.action_high, num=10000)
+            actions = np.linspace(self.action_low,self.action_high, num=1000)
             weights = (actions[1:]-actions[:-1])
             actions = (actions[:-1]+actions[1:])/2.
         else:
