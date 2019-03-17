@@ -306,6 +306,8 @@ class EPG(PG):
 
     def train_actor(self, observation):
 
+        data = {}
+
         # Get Experience From Quadrature
         def function_to_integrate(actions, obs):
 
@@ -323,14 +325,19 @@ class EPG(PG):
                                                                             self.action_placeholder : actions[None]})
             return val
 
-        if self.quadrature == "riemann":
-            #actions = np.linspace(-1, 1, num=1000)
-            #actions = np.random.uniform(self.action_low,self.action_high, size=100000)
-            actions = np.linspace(self.action_low,self.action_high, num=1000)
-            weights = (actions[1:]-actions[:-1])
-            actions = (actions[:-1]+actions[1:])/2.
+        if self.discrete:
+            actions = np.arange(self.action_dim)
+            weights = np.ones(self.action_dim)
         else:
-            results = integrate.quad(function_to_integrate, self.action_low, self.action_high, args=(observation,), full_output=1, maxp1=100)
+
+            if self.quadrature == "riemann":
+                #actions = np.linspace(-1, 1, num=1000)
+                #actions = np.random.uniform(self.action_low,self.action_high, size=100000)
+                actions = np.linspace(self.action_low,self.action_high, num=1000)
+                weights = (actions[1:]-actions[:-1])
+                actions = (actions[:-1]+actions[1:])/2.
+            else:
+                results = integrate.quad(function_to_integrate, self.action_low, self.action_high, args=(observation,), full_output=1, maxp1=100)
 
 
         #results = integrate.quadrature(function_to_integrate, self.action_low, self.action_high, args=(observation,), vec_func=False)
@@ -345,8 +352,10 @@ class EPG(PG):
                                             self.weights_placeholder: weights})
 
         #print("shapes --- prob: {} | critic_output: {} | loss_integrand: {}".format(prob.shape, critic_output.shape, loss_integrand.shape))
-        print("integral --- riemann: {}".format(loss_integral))
+        #print("integral --- riemann: {}".format(loss_integral))
         # print("")
+        data["loss_integral"] = loss_integral
+        return data
 
     def train_critic(self, observation, action, reward, next_observation, done):
         action = np.array(action)[None]

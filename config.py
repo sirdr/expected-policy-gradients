@@ -26,7 +26,7 @@ class config_cartpole:
         self.num_batches            = 100 # number of batches trained on
         self.batch_size             = 64 # number of steps used to compute each policy update
         self.max_ep_len             = 1000 # maximum episode length
-        self.max_timesteps          = 1e6
+        self.max_timesteps          = 5e4
         self.start_timesteps        = 1e4
         self.max_ep_len             = 1000 # maximum episode length
         self.learning_rate          = 1e-4
@@ -53,7 +53,7 @@ class config_pendulum:
         self.num_batches            = 1000 # number of batches trained on
         self.batch_size             = 64 # number of steps used to compute each policy update
         self.max_ep_len             = 1000 # maximum episode length
-        self.max_timesteps          = 1e6
+        self.max_timesteps          = 5e4
         self.start_timesteps        = 1e4
         self.max_ep_len             = 1000 # maximum episode length
         self.learning_rate          = 1e-4
