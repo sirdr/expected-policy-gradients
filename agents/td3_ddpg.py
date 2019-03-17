@@ -41,9 +41,10 @@ parser.add_argument('--env_name', required=True, type=str,
 
 
 class Actor(Model):
-    def __init__(self, num_actions, name='actor'):
+    def __init__(self, num_actions, name='actor', max_action=1):
         super().__init__(name=name)
         self.num_actions = num_actions
+        self.max_action = max_action
 
     def __call__(self,
                 obs,
@@ -60,7 +61,7 @@ class Actor(Model):
             h = tf.nn.relu(h)
             out_weight_init = tf.initializers.random_uniform(-3e-3, 3e-3)
             h = tf.layers.dense(h, self.num_actions, activation=None, kernel_initializer=out_weight_init, bias_initializer=out_weight_init)
-            output = tf.nn.tanh(h)
+            output = self.max_action*tf.nn.tanh(h)
         return output
 
 
@@ -95,7 +96,7 @@ class TD3DDPG(PG):
     def __init__(self, env, config, experience, actor=None, critic=None, action_noise = None, logger=None):
         super().__init__(env, config, logger=logger)
         if actor is None:
-            actor = Actor(self.action_dim)
+            actor = Actor(self.action_dim, max_action=self.action_high)
         self.actor = actor
 
         if critic is None:

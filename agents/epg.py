@@ -26,9 +26,10 @@ parser.add_argument('--env_name', required=True, type=str,
                     choices=['cartpole','pendulum', 'cheetah'])
 
 class Actor(Model):
-    def __init__(self, num_actions, name='actor'):
+    def __init__(self, num_actions, name='actor', max_action=1):
         super().__init__(name=name)
         self.num_actions = num_actions
+        self.max_action = max_action
 
     def __call__(self,
                 obs,
@@ -45,7 +46,7 @@ class Actor(Model):
             h = tf.nn.relu(h)
             out_weight_init = tf.initializers.random_uniform(-3e-3, 3e-3)
             h = tf.layers.dense(h, self.num_actions, activation=None, kernel_initializer=out_weight_init, bias_initializer=out_weight_init)
-            output = tf.nn.tanh(h)
+            output = self.max_action*tf.nn.tanh(h)
         return output
 
 
@@ -122,16 +123,18 @@ class EPG(PG):
     def get_policy_from_actor_op(self, actor, obs):
 
         if self.discrete:
-            action_logits = actor(obs, training=self.training_placeholder)
+            action_logits = actor(obs)#training=self.training_placeholder)
             sampled_action = tf.squeeze(tf.multinomial(action_logits, 1), axis = 1)
             return action_logits, sampled_action, None
         else:
-            action_means = actor(obs, training=self.training_placeholder)
+            action_output = actor(obs) #training=self.training_placeholder)
+            action_means = action_output
             with tf.variable_scope(actor.name, reuse=tf.AUTO_REUSE):
                 log_std = tf.get_variable("log_std", shape=(self.action_dim))
             shape = tf.shape(action_means)
             epsilon = tf.random_normal(shape)
             sampled_action = action_means + tf.multiply(epsilon, tf.exp(log_std))
+            # TODO: clip here ? or clip only in act(), revert back to log_std ?
             return action_means, sampled_action, log_std
 
     def get_likelihood_op(self, target_actions, pred_actions, log_std=None):
@@ -145,8 +148,9 @@ class EPG(PG):
         return logprob, prob
 
     def add_actor_loss_op(self):
-        self.loss_integrand = tf.multiply(self.prob, self.critic_output)
-        self.loss = -1*tf.reduce_mean(self.loss_integrand)
+        self.loss_integrand = tf.multiply(tf.expand_dims(self.prob, axis=1), self.critic_output)
+        self.loss_integral = tf.reduce_mean(self.loss_integrand)
+        self.loss = -1*self.loss_integral
 
     def add_actor_optimizer_op(self):
         opt = tf.train.AdamOptimizer(learning_rate=self.actor_lr)
@@ -272,6 +276,7 @@ class EPG(PG):
             action = self.sess.run(self.sampled_actions, feed_dict=feed_dict)
             q = None
 
+        action = np.clip(action, self.action_low, self.action_high)
         return action, q
 
     def evaluate_policy(self, env=None, eval_episodes=10):
@@ -297,31 +302,42 @@ class EPG(PG):
     def train_actor(self, observation):
 
         # Get Experience From Quadrature
+        def function_to_integrate(actions, obs):
+
+            try:
+                num_actions = actions.shape[0]
+            except:
+                num_actions = 1
+                actions = np.array([actions])
+
+            if num_actions > 1:
+                obs = np.tile(obs, (num_actions, 1))
+            else:
+                obs = obs[None]
+            val = self.sess.run(self.loss_integrand, feed_dict = {self.observation_placeholder: obs,
+                                                                            self.action_placeholder : actions[None]})
+            return val
 
         if self.quadrature == "uniform":
             #actions = np.linspace(-1, 1, num=1000)
-            actions = np.random.uniform(-1,1, size=100)
+            actions = np.random.uniform(self.action_low,self.action_high, size=1000)
+            #actions = np.linspace(self.action_low,self.action_high, num=10000)
         else:
-            def function_to_integrate(self, actions, obs):
-
-                num_actions = actions.shape[0]
-                if num_actions > 1:
-                    obs = np.tile(obs, (num_actions, 1))
-                else:
-                    obs = obs[None]
-                val = self.sess.run(self.loss_integrand, feed_dict = {self.observation_placeholder: obs,
-                                                                                self.action_placeholder : actions[:, None]})
-                return val
-
             results = integrate.quad(function_to_integrate, self.action_low, self.action_high, args=(observation,), full_output=1, maxp1=100)
 
+
+        #results = integrate.quadrature(function_to_integrate, self.action_low, self.action_high, args=(observation,), vec_func=False)
         num_actions = actions.shape[0]
         observations = np.tile(observation, (num_actions, 1))
         actions = actions[:, None]
 
-        self.sess.run(self.train_op, feed_dict={
-                    self.observation_placeholder : observations,
-                    self.action_placeholder : actions})
+        _ , loss_integral, loss_integrand, prob, critic_output = self.sess.run([self.train_op, self.loss_integral, self.loss_integrand, self.prob, self.critic_output], feed_dict={
+                                            self.observation_placeholder : observations,
+                                            self.action_placeholder : actions})
+
+        #print("shapes --- prob: {} | critic_output: {} | loss_integrand: {}".format(prob.shape, critic_output.shape, loss_integrand.shape))
+        # print("integral --- uniform: {} | scipy.quadrature: {} ".format(loss_integral, results[0]))
+        # print("")
 
     def train_critic(self, observation, action, reward, next_observation, done):
         action = np.array(action)[None]

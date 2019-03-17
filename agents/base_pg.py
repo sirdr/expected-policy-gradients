@@ -69,8 +69,8 @@ class PG(object):
         self.gamma = self.config.gamma
 
         if not self.discrete:
-            self.action_high = self.env.action_space.high
-            self.action_low = self.env.action_space.low
+            self.action_high = float(self.env.action_space.high[0])
+            self.action_low = float(self.env.action_space.low[0])
             self.obs_high = self.env.observation_space.high
             self.obs_low = self.env.observation_space.low
 
