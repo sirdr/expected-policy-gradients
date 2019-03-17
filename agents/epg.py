@@ -351,7 +351,6 @@ class EPG(PG):
         num_actions = actions.shape[0]
         observations = np.tile(observation, (num_actions, 1))
         actions = actions[:, None]
-        print(actions.shape)
         weights = weights[:, None]
 
         _ , loss_integral, loss_integrand_weighted, prob, critic_output = self.sess.run([self.train_op, self.loss_integral, self.loss_integrand_weighted, self.prob, self.critic_output], feed_dict={
@@ -360,7 +359,7 @@ class EPG(PG):
                                             self.weights_placeholder: weights})
 
         #print("shapes --- prob: {} | critic_output: {} | loss_integrand: {}".format(prob.shape, critic_output.shape, loss_integrand.shape))
-        #print("integral --- riemann: {}".format(loss_integral))
+        print("integral --- riemann: {}".format(loss_integral))
         # print("")
         data["loss_integral"] = loss_integral
         return data
