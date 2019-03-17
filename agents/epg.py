@@ -320,7 +320,7 @@ class EPG(PG):
 
         if self.quadrature == "uniform":
             #actions = np.linspace(-1, 1, num=1000)
-            actions = np.random.uniform(self.action_low,self.action_high, size=1000)
+            actions = np.random.uniform(self.action_low,self.action_high, size=10000)
             #actions = np.linspace(self.action_low,self.action_high, num=10000)
         else:
             results = integrate.quad(function_to_integrate, self.action_low, self.action_high, args=(observation,), full_output=1, maxp1=100)
