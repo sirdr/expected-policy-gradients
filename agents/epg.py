@@ -26,10 +26,11 @@ parser.add_argument('--env_name', required=True, type=str,
                     choices=['cartpole','pendulum', 'cheetah'])
 
 class Actor(Model):
-    def __init__(self, num_actions, name='actor', max_action=1):
+    def __init__(self, num_actions, name='actor', discrete = False, max_action=1):
         super().__init__(name=name)
         self.num_actions = num_actions
         self.max_action = max_action
+        self.discrete = discrete
 
     def __call__(self,
                 obs,
@@ -86,7 +87,10 @@ class EPG(PG):
 
         super().__init__(env, config, logger=logger)
         if actor is None:
-            actor = Actor(self.action_dim)
+            if self.discrete:
+                actor = Actor(self.action_dim, discrete=self.discrete)
+            else:
+                actor = Actor(self.action_dim, discrete=self.discrete, max_action=self.action_high)
         self.actor = actor
 
         if critic is None:
