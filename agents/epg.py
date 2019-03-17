@@ -134,7 +134,7 @@ class EPG(PG):
 
         if self.discrete:
             action_logits = actor(obs)[0]#training=self.training_placeholder)
-            sampled_action = tf.squeeze(tf.multinomial(action_logits, 1), axis = 1)
+            sampled_action = tf.multinomial(action_logits, 1)
             return action_logits, sampled_action, None
         else:
             action_output = actor(obs) #training=self.training_placeholder)
@@ -359,7 +359,7 @@ class EPG(PG):
                                             self.weights_placeholder: weights})
 
         #print("shapes --- prob: {} | critic_output: {} | loss_integrand: {}".format(prob.shape, critic_output.shape, loss_integrand.shape))
-        print("integral --- riemann: {}".format(loss_integral))
+        #print("integral --- riemann: {}".format(loss_integral))
         # print("")
         data["loss_integral"] = loss_integral
         return data
