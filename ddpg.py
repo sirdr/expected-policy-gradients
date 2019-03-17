@@ -114,7 +114,6 @@ def learn(env, config, seed = 7):
             action, _ = agent.act(np.array(observation), apply_noise=True, compute_q=False)
 
         # Perform action
-        print(action)
         new_observation, reward, done, _ = env.step(action) 
         done_bool = False if episode_timesteps + 1 == env._max_episode_steps else done
         episode_reward += reward
