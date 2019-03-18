@@ -52,7 +52,7 @@ class Actor(Model):
                 #output_logstd = tf.layers.dense(obs, self.num_actions, activation=None, kernel_initializer=out_weight_init, bias_initializer=out_weight_init)
                 #return [self.max_action*output, output_logstd]
                 #return self.max_action*output
-                return self.action_high*tf.nn.tanh(h)
+                return self.max_action*tf.nn.tanh(h)
             else:
                 output = tf.nn.softmax(h)
                 return output
