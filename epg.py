@@ -106,9 +106,13 @@ def learn(env, config, seed = 7):
         else:
             action, _ = agent.act(np.array(observation))
 
+        if not agent.discrete:
+            input_action = np.clip(action, agent.action_low, agent.action_high)
+        else:
+            input_action = action
 
         # Perform action
-        new_observation, reward, done, _ = env.step(np.clip(action, agent.action_low, agent.action_high)) 
+        new_observation, reward, done, _ = env.step(input_action) 
         done_bool = False if episode_timesteps + 1 == env._max_episode_steps else done
         episode_reward += reward
         action = np.array([action])
