@@ -136,7 +136,7 @@ class EPG(PG):
     def get_policy_from_actor_op(self, actor, obs):
 
         if self.discrete:
-            action_logits = actor(obs)[0]#training=self.training_placeholder)
+            action_logits = actor(obs)#training=self.training_placeholder)
             sampled_action = tf.multinomial(action_logits, 1)
             return action_logits, sampled_action, None
         else:
