@@ -349,7 +349,7 @@ class EPG(PG):
                 results = integrate.quad(function_to_integrate, self.action_low, self.action_high, args=(observation,), full_output=1, maxp1=100)
 
 
-        results = integrate.quadrature(function_to_integrate, self.action_low, self.action_high, args=(observation,), vec_func=False)
+        #results = integrate.quadrature(function_to_integrate, self.action_low, self.action_high, args=(observation,), vec_func=False)
         num_actions = actions.shape[0]
         observations = np.tile(observation, (num_actions, 1))
         actions = actions[:, None]
