@@ -71,7 +71,7 @@ def learn(env, config, seed = 7):
     done = True 
 
     update_actor_freq = 100
-
+    observation_list = []
     while total_timesteps < config.max_timesteps:
         
         if done: 
