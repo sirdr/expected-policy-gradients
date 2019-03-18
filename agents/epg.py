@@ -290,6 +290,7 @@ class EPG(PG):
         if not self.discrete:
             action = np.clip(action, self.action_low, self.action_high)
         action = action[0].item()
+        print("action {}".format(action))
         return action, q
 
     def evaluate_policy(self, env=None, eval_episodes=10):
