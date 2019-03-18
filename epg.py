@@ -94,7 +94,8 @@ def learn(env, config, seed = 7):
         
 
         # update policy
-        if total_timesteps%update_actor_freq == 0:
+        if total_timesteps%max(update_actor_freq, 10) == 0:
+            update_actor_freq -= 1
             stats = agent.train_actor(observation)
 
         # Select action randomly or according to policy
