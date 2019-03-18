@@ -318,7 +318,7 @@ class EPG(PG):
                                                                         self.action_placeholder : actions[None]})
                 return val
 
-            num_sates = len(observations)
+            num_states = len(observations)
             observations = np.array(observations)
 
             if self.discrete:
