@@ -331,8 +331,8 @@ class EPG(PG):
                     #actions = np.linspace(-1, 1, num=1000)
                     #actions = np.random.uniform(self.action_low,self.action_high, size=100000)
                     actions = np.linspace(self.action_low,self.action_high, num=1000)
-                    actions = (actions[:-1]+actions[1:])/2.
                     weights = (actions[1:]-actions[:-1])
+                    actions = (actions[:-1]+actions[1:])/2.
                     observations = np.reshape(np.tile(observations, len(actions)), (len(actions)*num_states, -1))
                     weights = np.tile(weights, (num_states))
                     actions = np.tile(actions, (num_states))
