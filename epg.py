@@ -70,7 +70,7 @@ def learn(env, config, seed = 7):
     episode_num = 0
     done = True 
 
-    update_actor_freq = 1000
+    update_actor_freq = 500
 
     while total_timesteps < config.max_timesteps:
         
