@@ -47,16 +47,14 @@ class Actor(Model):
             h = tf.nn.relu(h)
             out_weight_init = tf.initializers.random_uniform(-3e-3, 3e-3)
             h = tf.layers.dense(h, self.num_actions, activation=None, kernel_initializer=out_weight_init, bias_initializer=out_weight_init)
-            #output = tf.nn.tanh(h)
-            output = h
 
             if not self.discrete:
                 #output_logstd = tf.layers.dense(obs, self.num_actions, activation=None, kernel_initializer=out_weight_init, bias_initializer=out_weight_init)
                 #return [self.max_action*output, output_logstd]
                 #return self.max_action*output
-                return output
+                return self.action_high*tf.nn.tanh(h)
             else:
-                output = tf.nn.softmax(output)
+                output = tf.nn.softmax(h)
                 return output
 
 
@@ -148,9 +146,9 @@ class EPG(PG):
                 log_std = tf.get_variable("log_std", shape=(self.action_dim))
             shape = tf.shape(action_means)
             epsilon = tf.random_normal(shape)
-            sampled_action = self.action_high*tf.nn.tanh(action_means + tf.multiply(epsilon, tf.exp(log_std)))
+            sampled_action = action_means + tf.multiply(epsilon, tf.exp(log_std))
             # TODO: clip here ? or clip only in act(), revert back to log_std ?
-            return self.action_high*tf.nn.tanh(action_means), sampled_action, log_std
+            return action_means, sampled_action, log_std
 
     def get_likelihood_op(self, target_actions, pred_actions, log_std=None):
 
@@ -208,17 +206,6 @@ class EPG(PG):
 
     def build(self):
 
-        # # Observation normalization.
-        # if self.normalize_observations:
-        #     with tf.variable_scope('obs_rms'):
-        #         self.obs_rms = RunningMeanStd(shape=self.observation_shape)
-        # else:
-        #     self.obs_rms = None
-        # normalized_obs0 = tf.clip_by_value(normalize(self.obs0, self.obs_rms),
-        #     self.obs_low, self.obs_high)
-        # normalized_obs1 = tf.clip_by_value(normalize(self.obs1, self.obs_rms),
-        #     self.obs_low, self.obs_high)
-
         # add placeholders
         self.add_placeholders_op()
 
@@ -272,21 +259,6 @@ class EPG(PG):
     def update_targets(self):
         self.sess.run([self.update_target_critic_op, self.update_target_actor_op], feed_dict={})
 
-    # def run(self):
-    #   """
-    #   Apply procedures of training for a PG.
-    #   """
-    #   # initialize
-    #   self.initialize()
-    #   # record one game at the beginning
-    #   if self.config.record:
-    #       self.record()
-    #   # model
-    #   self.train()
-    #   # record one game at the end
-    #   if self.config.record:
-    #     self.record()
-
     def act(self, observation, compute_q = False):
         feed_dict = {self.observation_placeholder: observation[None]}
         if compute_q:
@@ -294,8 +266,8 @@ class EPG(PG):
         else:
             action = self.sess.run(self.sampled_actions, feed_dict=feed_dict)
             q = None
-        if not self.discrete:
-            action = np.clip(action, self.action_low, self.action_high)
+        # if not self.discrete:
+        #     action = np.clip(action, self.action_low, self.action_high)
         action = action[0].item()
         #print("action {}".format(action))
         return action, q
@@ -309,6 +281,7 @@ class EPG(PG):
             total_reward = 0.0
             while not done:
                 action, _ = self.act(np.array(obs))
+                action = np.clip(action, self.action_low, self.action_high)
                 obs, reward, done, _ = env.step(action)
                 total_reward += reward
             rewards.append(total_reward)
@@ -324,54 +297,53 @@ class EPG(PG):
 
         stats = {}
 
-        # Get Experience From Quadrature
-        def function_to_integrate(actions, obs):
+        if self.quadrature == "analytic":
+            pass
 
-            try:
-                num_actions = actions.shape[0]
-            except:
-                num_actions = 1
-                actions = np.array([actions])
-
-            if num_actions > 1:
-                obs = np.tile(obs, (num_actions, 1))
-            else:
-                obs = obs[None]
-            val = self.sess.run(self.loss_integrand, feed_dict = {self.observation_placeholder: obs,
-                                                                            self.action_placeholder : actions[None]})
-            return val
-
-        if self.discrete:
-            actions = np.arange(self.action_dim)
-            weights = np.ones(self.action_dim)
         else:
 
-            if self.quadrature == "riemann":
-                #actions = np.linspace(-1, 1, num=1000)
-                #actions = np.random.uniform(self.action_low,self.action_high, size=100000)
-                actions = np.linspace(self.action_low,self.action_high, num=1000)
-                weights = (actions[1:]-actions[:-1])
-                actions = (actions[:-1]+actions[1:])/2.
+            # Get Experience From Quadrature
+            def function_to_integrate(actions, obs):
+                try:
+                    num_actions = actions.shape[0]
+                except:
+                    num_actions = 1
+                    actions = np.array([actions])
+                if num_actions > 1:
+                    obs = np.tile(obs, (num_actions, 1))
+                else:
+                    obs = obs[None]
+                val = self.sess.run(self.loss_integrand, feed_dict = {self.observation_placeholder: obs,
+                                                                        self.action_placeholder : actions[None]})
+                return val
+
+            if self.discrete:
+                actions = np.arange(self.action_dim)
+                weights = np.ones(self.action_dim)
             else:
-                results = integrate.quad(function_to_integrate, self.action_low, self.action_high, args=(observation,), full_output=1, maxp1=100)
+                if self.quadrature == "riemann":
+                    #actions = np.linspace(-1, 1, num=1000)
+                    #actions = np.random.uniform(self.action_low,self.action_high, size=100000)
+                    actions = np.linspace(self.action_low,self.action_high, num=1000)
+                    weights = (actions[1:]-actions[:-1])
+                    actions = (actions[:-1]+actions[1:])/2.
+                else:
+                    results = integrate.quad(function_to_integrate, self.action_low, self.action_high, args=(observation,), full_output=1, maxp1=100)
+            #results = integrate.quadrature(function_to_integrate, self.action_low, self.action_high, args=(observation,), vec_func=False)
+            num_actions = actions.shape[0]
+            observations = np.tile(observation, (num_actions, 1))
+            actions = actions[:, None]
+            weights = weights[:, None]
+            _ , loss_integral, loss_integrand_weighted, prob, critic_output = self.sess.run([self.train_op, self.loss_integral, self.loss_integrand_weighted, self.prob, self.critic_output], feed_dict={
+                                                self.observation_placeholder : observations,
+                                                self.action_placeholder : actions,
+                                                self.weights_placeholder: weights})
 
-
-        #results = integrate.quadrature(function_to_integrate, self.action_low, self.action_high, args=(observation,), vec_func=False)
-        num_actions = actions.shape[0]
-        observations = np.tile(observation, (num_actions, 1))
-        actions = actions[:, None]
-        weights = weights[:, None]
-
-        _ , loss_integral, loss_integrand_weighted, prob, critic_output = self.sess.run([self.train_op, self.loss_integral, self.loss_integrand_weighted, self.prob, self.critic_output], feed_dict={
-                                            self.observation_placeholder : observations,
-                                            self.action_placeholder : actions,
-                                            self.weights_placeholder: weights})
-
-        #print("shapes --- prob: {} | critic_output: {} | loss_integrand: {}".format(prob.shape, critic_output.shape, loss_integrand.shape))
-        #print("integral --- riemann: {} | scipy : {}".format(loss_integral, results[0]))
-        print("integral --- riemann: {}".format(loss_integral))
-        # print("")
-        stats["loss_integral"] = loss_integral
+            #print("shapes --- prob: {} | critic_output: {} | loss_integrand: {}".format(prob.shape, critic_output.shape, loss_integrand.shape))
+            #print("integral --- riemann: {} | scipy : {}".format(loss_integral, results[0]))
+            print("integral --- riemann: {}".format(loss_integral))
+            # print("")
+            stats["loss_integral"] = loss_integral
         return stats
 
     def train_critic(self, observation, action, reward, next_observation, done):
