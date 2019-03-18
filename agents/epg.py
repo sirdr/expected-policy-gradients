@@ -282,7 +282,8 @@ class EPG(PG):
             total_reward = 0.0
             while not done:
                 action, _ = self.act(np.array(obs))
-                action = np.clip(action, self.action_low, self.action_high)
+                if not self.discrete:
+                    action = np.clip(action, self.action_low, self.action_high)
                 obs, reward, done, _ = env.step(action)
                 total_reward += reward
             rewards.append(total_reward)
