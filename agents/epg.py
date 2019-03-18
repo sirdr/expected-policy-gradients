@@ -336,6 +336,7 @@ class EPG(PG):
                     observations = np.reshape(np.tile(observations, len(actions)), (len(actions)*num_states, -1))
                     weights = np.tile(weights, (num_states))
                     actions = np.tile(actions, (num_states))
+                    print(actions.shape)
                 else:
                     results = integrate.quad(function_to_integrate, self.action_low, self.action_high, args=(observation,), full_output=1, maxp1=100)
             #results = integrate.quadrature(function_to_integrate, self.action_low, self.action_high, args=(observation,), vec_func=False)
