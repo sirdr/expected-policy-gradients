@@ -164,7 +164,7 @@ class EPG(PG):
     def add_actor_loss_op(self):
         self.loss_integrand = tf.multiply(tf.expand_dims(self.prob, axis=1), self.critic_output)
         self.loss_integrand_weighted = tf.multiply(self.weights_placeholder, self.loss_integrand)
-        self.loss_integral = tf.reduce_sum(self.loss_integrand_weighted)
+        self.loss_integral = tf.reduce_sum(self.loss_integrand_weighted)/self.weights_placeholder
         self.loss = -1*self.loss_integral
 
     def add_actor_optimizer_op(self):
