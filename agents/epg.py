@@ -361,7 +361,8 @@ class EPG(PG):
                                             self.weights_placeholder: weights})
 
         #print("shapes --- prob: {} | critic_output: {} | loss_integrand: {}".format(prob.shape, critic_output.shape, loss_integrand.shape))
-        print("integral --- riemann: {} | scipy : {}".format(loss_integral, results[0]))
+        #print("integral --- riemann: {} | scipy : {}".format(loss_integral, results[0]))
+        print("integral --- riemann: {}".format(loss_integral))
         # print("")
         data["loss_integral"] = loss_integral
         return data
