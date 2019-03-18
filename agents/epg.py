@@ -50,8 +50,9 @@ class Actor(Model):
             output = tf.nn.tanh(h)
 
             if not self.discrete:
-                output_logstd = tf.layers.dense(obs, self.num_actions, activation=None, kernel_initializer=out_weight_init, bias_initializer=out_weight_init)
-                return [self.max_action*output, output_logstd]
+                #output_logstd = tf.layers.dense(obs, self.num_actions, activation=None, kernel_initializer=out_weight_init, bias_initializer=out_weight_init)
+                #return [self.max_action*output, output_logstd]
+                return self.max_action*output
             else:
                 return [output]
 
@@ -138,10 +139,10 @@ class EPG(PG):
             return action_logits, sampled_action, None
         else:
             action_output = actor(obs) #training=self.training_placeholder)
-            action_means = action_output[0]
-            log_std = action_output[1]
-            # with tf.variable_scope(actor.name, reuse=tf.AUTO_REUSE):
-            #     log_std = tf.get_variable("log_std", shape=(self.action_dim))
+            action_means = action_output#[0]
+            #log_std = action_output[1]
+            with tf.variable_scope(actor.name, reuse=tf.AUTO_REUSE):
+                log_std = tf.get_variable("log_std", shape=(self.action_dim))
             shape = tf.shape(action_means)
             epsilon = tf.random_normal(shape)
             sampled_action = action_means + tf.multiply(epsilon, tf.exp(log_std))
