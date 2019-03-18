@@ -324,8 +324,8 @@ class EPG(PG):
             if self.discrete:
                 observations = np.reshape(np.tile(observations, (self.action_dim)), (self.action_dim*num_states, -1))
                 actions = np.arange(self.action_dim)
-                actions = np.tile(actions, (num_sates))
-                weights = np.tile(np.ones(self.action_dim), (num_sates))
+                actions = np.tile(actions, (num_states))
+                weights = np.tile(np.ones(self.action_dim), (num_states))
             else:
                 if self.quadrature == "riemann":
                     #actions = np.linspace(-1, 1, num=1000)
@@ -334,8 +334,8 @@ class EPG(PG):
                     actions = (actions[:-1]+actions[1:])/2.
                     weights = (actions[1:]-actions[:-1])
                     observations = np.reshape(np.tile(observations, len(actions)), (len(actions)*num_states, -1))
-                    weights = np.tile(weights, (num_sates))
-                    actions = np.tile(actions, (num_sates))
+                    weights = np.tile(weights, (num_states))
+                    actions = np.tile(actions, (num_states))
                 else:
                     results = integrate.quad(function_to_integrate, self.action_low, self.action_high, args=(observation,), full_output=1, maxp1=100)
             #results = integrate.quadrature(function_to_integrate, self.action_low, self.action_high, args=(observation,), vec_func=False)
