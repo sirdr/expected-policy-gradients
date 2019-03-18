@@ -47,14 +47,17 @@ class Actor(Model):
             h = tf.nn.relu(h)
             out_weight_init = tf.initializers.random_uniform(-3e-3, 3e-3)
             h = tf.layers.dense(h, self.num_actions, activation=None, kernel_initializer=out_weight_init, bias_initializer=out_weight_init)
-            output = tf.nn.tanh(h)
+            #output = tf.nn.tanh(h)
+            output = h
 
             if not self.discrete:
                 #output_logstd = tf.layers.dense(obs, self.num_actions, activation=None, kernel_initializer=out_weight_init, bias_initializer=out_weight_init)
                 #return [self.max_action*output, output_logstd]
-                return self.max_action*output
+                #return self.max_action*output
+                return output
             else:
-                return [output]
+                output = tf.nn.softmax(output)
+                return output
 
 
 class Critic(Model):
@@ -145,9 +148,9 @@ class EPG(PG):
                 log_std = tf.get_variable("log_std", shape=(self.action_dim))
             shape = tf.shape(action_means)
             epsilon = tf.random_normal(shape)
-            sampled_action = action_means + tf.multiply(epsilon, tf.exp(log_std))
+            sampled_action = self.action_high*tf.nn.tanh(action_means + tf.multiply(epsilon, tf.exp(log_std)))
             # TODO: clip here ? or clip only in act(), revert back to log_std ?
-            return action_means, sampled_action, log_std
+            return self.action_high*tf.nn.tanh(action_means), sampled_action, log_std
 
     def get_likelihood_op(self, target_actions, pred_actions, log_std=None):
 
