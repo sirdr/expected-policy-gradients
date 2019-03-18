@@ -131,6 +131,7 @@ class EPG(PG):
         self.done_placeholder = tf.placeholder(tf.bool, shape=(None, 1))
 
         self.training_placeholder = tf.placeholder(tf.bool)
+        self.num_states_placeholder = tf.placeholder(tf.float32, shape=())
 
     def get_policy_from_actor_op(self, actor, obs):
 
@@ -293,7 +294,7 @@ class EPG(PG):
         print("---------------------------------------")
         return avg_reward
 
-    def train_actor(self, observation):
+    def train_actor(self, observations):
 
         stats = {}
 
@@ -317,21 +318,27 @@ class EPG(PG):
                                                                         self.action_placeholder : actions[None]})
                 return val
 
+            num_sates = len(observations)
+            observations = np.array(observations)
+
             if self.discrete:
+                observations = np.reshape(np.tile(observations, (self.action_dim)), (self.action_dim*num_states, -1))
                 actions = np.arange(self.action_dim)
-                weights = np.ones(self.action_dim)
+                actions = np.tile(actions, (num_sates))
+                weights = np.tile(np.ones(self.action_dim), (num_sates))
             else:
                 if self.quadrature == "riemann":
                     #actions = np.linspace(-1, 1, num=1000)
                     #actions = np.random.uniform(self.action_low,self.action_high, size=100000)
                     actions = np.linspace(self.action_low,self.action_high, num=1000)
-                    weights = (actions[1:]-actions[:-1])
                     actions = (actions[:-1]+actions[1:])/2.
+                    weights = (actions[1:]-actions[:-1])
+                    observations = np.reshape(np.tile(observations, len(actions)), (len(actions)*num_states, -1))
+                    weights = np.tile(weights, (num_sates))
+                    actions = np.tile(actions, (num_sates))
                 else:
                     results = integrate.quad(function_to_integrate, self.action_low, self.action_high, args=(observation,), full_output=1, maxp1=100)
             #results = integrate.quadrature(function_to_integrate, self.action_low, self.action_high, args=(observation,), vec_func=False)
-            num_actions = actions.shape[0]
-            observations = np.tile(observation, (num_actions, 1))
             actions = actions[:, None]
             weights = weights[:, None]
             _ , loss_integral, loss_integrand_weighted, prob, critic_output = self.sess.run([self.train_op, self.loss_integral, self.loss_integrand_weighted, self.prob, self.critic_output], feed_dict={

@@ -91,13 +91,14 @@ def learn(env, config, seed = 7):
             episode_reward = 0
             episode_timesteps = 0
             episode_num += 1 
-        
 
+        observation_list.append(observation)
         # update policy
         #if total_timesteps%max(update_actor_freq, 10) == 0:
         if total_timesteps%update_actor_freq == 0:
             #update_actor_freq -= 1
-            stats = agent.train_actor(observation)
+            stats = agent.train_actor(observation_list)
+            observation_list = []
 
         # Select action randomly or according to policy
         if total_timesteps < 0:#config.start_timesteps:
