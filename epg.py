@@ -92,7 +92,7 @@ def learn(env, config, seed = 7):
         
 
         # update policy
-        data = agent.train_actor(observation)
+        stats = agent.train_actor(observation)
 
         # Select action randomly or according to policy
         if total_timesteps < 0:#config.start_timesteps:

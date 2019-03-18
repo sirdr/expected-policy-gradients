@@ -224,6 +224,9 @@ class EPG(PG):
         self.target_pred_actions, self.target_sampled_actions, self.target_log_std = self.get_policy_from_actor_op(self.target_actor, 
                                                                                                                     self.next_observation_placeholder)
 
+        self.pred_actions_next, self.sampled_actions_next, self.log_std_next = self.get_policy_from_actor_op(self.actor,  
+                                                                                                self.next_observation_placeholder)
+
         self.logprob, self.prob = self.get_likelihood_op(self.action_placeholder, self.pred_actions, log_std = self.log_std)
 
         self.target_logprob, self.target_prob = self.get_likelihood_op(self.target_sampled_actions, 
@@ -232,7 +235,7 @@ class EPG(PG):
 
         # get critic values
         self.critic_output = self.critic(self.observation_placeholder, self.action_placeholder)
-        self.target_critic_output = self.target_critic(self.next_observation_placeholder, self.target_sampled_actions)
+        self.target_critic_output = self.target_critic(self.next_observation_placeholder, self.sampled_actions_next)
 
         self.add_actor_loss_op()
         self.add_actor_optimizer_op()
@@ -315,7 +318,7 @@ class EPG(PG):
 
     def train_actor(self, observation):
 
-        data = {}
+        stats = {}
 
         # Get Experience From Quadrature
         def function_to_integrate(actions, obs):
@@ -364,8 +367,8 @@ class EPG(PG):
         #print("integral --- riemann: {} | scipy : {}".format(loss_integral, results[0]))
         print("integral --- riemann: {}".format(loss_integral))
         # print("")
-        data["loss_integral"] = loss_integral
-        return data
+        stats["loss_integral"] = loss_integral
+        return stats
 
     def train_critic(self, observation, action, reward, next_observation, done):
         action = np.array(action)[None]
