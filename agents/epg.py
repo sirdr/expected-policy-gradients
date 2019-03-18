@@ -164,7 +164,7 @@ class EPG(PG):
     def add_actor_loss_op(self):
         self.loss_integrand = tf.multiply(tf.expand_dims(self.prob, axis=1), self.critic_output)
         self.loss_integrand_weighted = tf.multiply(self.weights_placeholder, self.loss_integrand)
-        self.loss_integral = tf.reduce_sum(self.loss_integrand_weighted)/self.weights_placeholder
+        self.loss_integral = tf.reduce_sum(self.loss_integrand_weighted)/self.num_states_placeholder
         self.loss = -1*self.loss_integral
 
     def add_actor_optimizer_op(self):
@@ -344,7 +344,8 @@ class EPG(PG):
             _ , loss_integral, loss_integrand_weighted, prob, critic_output = self.sess.run([self.train_op, self.loss_integral, self.loss_integrand_weighted, self.prob, self.critic_output], feed_dict={
                                                 self.observation_placeholder : observations,
                                                 self.action_placeholder : actions,
-                                                self.weights_placeholder: weights})
+                                                self.weights_placeholder: weights,
+                                                self.num_states_placeholder: num_states})
 
             #print("shapes --- prob: {} | critic_output: {} | loss_integrand: {}".format(prob.shape, critic_output.shape, loss_integrand.shape))
             #print("integral --- riemann: {} | scipy : {}".format(loss_integral, results[0]))
