@@ -235,7 +235,7 @@ class EPG(PG):
 
         # get critic values
         self.critic_output = self.critic(self.observation_placeholder, self.action_placeholder)
-        self.target_critic_output = self.target_critic(self.next_observation_placeholder, self.sampled_actions_next)
+        self.target_critic_output = self.target_critic(self.next_observation_placeholder, self.target_sampled_actions)
 
         self.add_actor_loss_op()
         self.add_actor_optimizer_op()
