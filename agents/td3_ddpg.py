@@ -285,7 +285,7 @@ class TD3DDPG(PG):
             _, loss_integrand = self.sess.run([self.train_op, self.loss_integrand], feed_dict={
                         self.observation_placeholder : observations,
                         self.action_placeholder : actions})
-            print("loss integrand: {}".format(loss_integrand))
+            #print("loss integrand: {}".format(loss_integrand))
 
             self.sess.run([self.update_target_critic_op, self.update_target_actor_op], feed_dict={})
 
