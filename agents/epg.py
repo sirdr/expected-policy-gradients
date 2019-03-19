@@ -348,7 +348,7 @@ class EPG(PG):
         print("---------------------------------------")
         print("Evaluation over {} episodes: {:04.2f} +/- {:04.2f}".format(eval_episodes, avg_reward, sigma_reward))
         print("---------------------------------------")
-        return avg_reward
+        return rewards
 
     def train_actor(self, observations):
 
@@ -378,7 +378,7 @@ class EPG(PG):
             observations = np.array(observations)
 
             results_from_scipy = None
-            
+
             if self.discrete:
                 observations = np.reshape(np.tile(observations, (self.action_dim)), (self.action_dim*num_states, -1))
                 actions = np.arange(self.action_dim)

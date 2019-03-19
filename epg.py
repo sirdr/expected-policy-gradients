@@ -45,7 +45,7 @@ parser.add_argument('--quadrature', type=str, default='riemann',
 #     print("---------------------------------------")
 #     return avg_reward
 
-def learn(env, config, quadrature, seed = 7):
+def learn(env, config, quadrature, num_episodes = 5000, num_eval_final = 50, seed = 7):
     """
     Apply procedures of training for a DDPG.
     """
@@ -78,7 +78,11 @@ def learn(env, config, quadrature, seed = 7):
 
     update_actor_freq = 100
     observation_list = []
-    while total_timesteps < config.max_timesteps:
+
+    stats = {}
+    stats["episode_rewards"] = []
+    stats["evaluation_rewards"] = []
+    while episode_num < num_episodes: #total_timesteps < config.max_timesteps:
         
         if done: 
 
@@ -86,9 +90,9 @@ def learn(env, config, quadrature, seed = 7):
                 print("Total T: {} Episode Num: {} Episode T: {} Reward: {}".format(total_timesteps, episode_num, episode_timesteps, episode_reward))
             
             # Evaluate episode
-            if timesteps_since_eval >= config.eval_freq:
-                timesteps_since_eval %= config.eval_freq
-                evaluations.append(agent.evaluate_policy())
+            # if timesteps_since_eval >= config.eval_freq:
+            #     timesteps_since_eval %= config.eval_freq
+            #     evaluations.append(agent.evaluate_policy())
                 
             
             # Reset environment
@@ -131,9 +135,11 @@ def learn(env, config, quadrature, seed = 7):
         episode_timesteps += 1
         total_timesteps += 1
         timesteps_since_eval += 1
+
+
         
     # Final evaluation 
-    evaluations.append(agent.evaluate_policy())
+    evaluations.append(agent.evaluate_policy(eval_episodes=num_eval_final))
 
 
     # if agent.config.record:
