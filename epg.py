@@ -25,6 +25,8 @@ from IPython import embed
 parser = argparse.ArgumentParser()
 parser.add_argument('--env_name', required=True, type=str,
                     choices=['cartpole','pendulum', 'cheetah'])
+parser.add_argument('--quadrature', type=str, default='riemann',
+                    choices=['riemann','trapz'])
 
 # def evaluate_policy(agent, eval_episodes=10):
 #     avg_reward = 0.
@@ -43,10 +45,11 @@ parser.add_argument('--env_name', required=True, type=str,
 #     print("---------------------------------------")
 #     return avg_reward
 
-def learn(env, config, seed = 7):
+def learn(env, config, quadrature, seed = 7):
     """
     Apply procedures of training for a DDPG.
     """
+
     env.seed(seed)
     tf.set_random_seed(seed)
     np.random.seed(seed)
@@ -54,8 +57,11 @@ def learn(env, config, seed = 7):
     config.batch_size = 100
 
     # initialize
-    agent = EPG(env, config)
+    agent = EPG(env, config, quadrature=quadrature)
     agent.initialize()
+
+    if not agent.discrete:
+        print("Computing integral using '{}' method.".format(quadrature))
 
     # record one game at the beginning
     # if agent.config.record:
@@ -140,4 +146,4 @@ if __name__ == '__main__':
     config = get_config(args.env_name)
     env = gym.make(config.env_name)
     # train model
-    learn(env, config)
+    learn(env, config, args.quadrature)

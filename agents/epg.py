@@ -25,10 +25,48 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--env_name', required=True, type=str,
                     choices=['cartpole','pendulum', 'cheetah'])
 
+# class QuadraticCritic(Model):
+#     def __init__(self, name='quad_critic'):
+#         super().__init__(name=name)
+
+#     def A(self, obs):
+#         output = None
+#         with tf.variable_scope(self.name, reuse=tf.AUTO_REUSE):
+#             #h = tf.layers.batch_normalization(obs, training=training)
+#             h = tf.layers.dense(obs, 400, activation=None, kernel_initializer=tf.initializers.variance_scaling())
+#             h = tf.nn.relu(h)
+#             h = tf.layers.dense(h, 300, activation=tf.nn.relu, kernel_initializer=tf.initializers.variance_scaling())
+#             out_weight_init = tf.initializers.random_uniform(-3e-3, 3e-3)
+#             output = tf.layers.dense(h, 1, activation=output_activation, kernel_initializer=out_weight_init, bias_initializer=out_weight_init)
+#         return output
+
+#     def B(self, obs):
+#         output = None
+#         with tf.variable_scope(self.name, reuse=tf.AUTO_REUSE):
+#             #h = tf.layers.batch_normalization(obs, training=training)
+#             h = tf.layers.dense(obs, 400, activation=None, kernel_initializer=tf.initializers.variance_scaling())
+#             h = tf.nn.relu(h)
+#             h = tf.layers.dense(h, 300, activation=tf.nn.relu, kernel_initializer=tf.initializers.variance_scaling())
+#             out_weight_init = tf.initializers.random_uniform(-3e-3, 3e-3)
+#             output = tf.layers.dense(h, 1, activation=output_activation, kernel_initializer=out_weight_init, bias_initializer=out_weight_init)
+#         return output
+
+#     def __call__(self, 
+#                 obs, 
+#                 actions,
+#                 output_activation=None):
+
+#         output = None
+#         with tf.variable_scope(self.name, reuse=tf.AUTO_REUSE):
+#             A_s = self.A(obs)
+#             B_s = self.B(obs)
+#             output = actions*A_s*actions + B_s*actions
+#         return output
+
 class Actor(Model):
-    def __init__(self, num_actions, name='actor', discrete = False, max_action=1):
+    def __init__(self, output_dim, name='actor', discrete = False, max_action=1):
         super().__init__(name=name)
-        self.num_actions = num_actions
+        self.output_dim = output_dim
         self.max_action = max_action
         self.discrete = discrete
 
@@ -46,7 +84,7 @@ class Actor(Model):
             h = tf.layers.dense(h, 300, activation=None, kernel_initializer=tf.initializers.variance_scaling())
             h = tf.nn.relu(h)
             out_weight_init = tf.initializers.random_uniform(-3e-3, 3e-3)
-            h = tf.layers.dense(h, self.num_actions, activation=None, kernel_initializer=out_weight_init, bias_initializer=out_weight_init)
+            h = tf.layers.dense(h, self.output_dim, activation=None, kernel_initializer=out_weight_init, bias_initializer=out_weight_init)
 
             if not self.discrete:
                 #output_logstd = tf.layers.dense(obs, self.num_actions, activation=None, kernel_initializer=out_weight_init, bias_initializer=out_weight_init)
@@ -85,14 +123,17 @@ class EPG(PG):
     """
     Class for Expected Policy Gradients, Inherets from the generic Policy Gradient class
     """
-    def __init__(self, env, config, actor=None, critic=None, quadrature = 'riemann', logger=None):
+    def __init__(self, env, config, actor=None, critic=None, quadrature = 'riemann', logger=None, num_actions=1000):
 
         super().__init__(env, config, logger=logger)
         if actor is None:
             if self.discrete:
                 actor = Actor(self.action_dim, discrete=self.discrete)
+                self.num_actions = self.action_dim # this is for discretising the action space in continuous domain
+                self.quadrature = "discrete"
             else:
                 actor = Actor(self.action_dim, discrete=self.discrete, max_action=self.action_high)
+                self.num_actions = num_actions # number of actions to use for integral
         self.actor = actor
 
         if critic is None:
@@ -163,8 +204,22 @@ class EPG(PG):
 
     def add_actor_loss_op(self):
         self.loss_integrand = tf.multiply(tf.expand_dims(self.prob, axis=1), self.critic_output)
-        self.loss_integrand_weighted = tf.multiply(self.weights_placeholder, self.loss_integrand)
-        self.loss_integral = tf.reduce_sum(self.loss_integrand_weighted)/self.num_states_placeholder
+
+        loss_integrand_reshaped = tf.reshape(self.loss_integrand, [-1, self.num_actions])
+        loss_integrand_reshaped_avg = (loss_integrand_reshaped[:, :-1] + loss_integrand_reshaped[:, 1:])/2.0
+        loss_integrand_avg = tf.reshape(loss_integrand_reshaped_avg, [-1, 1])
+
+        self.loss_integrand_weighted_trapz = tf.multiply(self.weights_placeholder, loss_integrand_avg)
+        self.loss_integrand_weighted_riemann = tf.multiply(self.weights_placeholder, self.loss_integrand)
+
+        self.loss_integral_trapz = tf.reduce_sum(self.loss_integrand_weighted_trapz)/self.num_states_placeholder
+        self.loss_integral_riemann = tf.reduce_sum(self.loss_integrand_weighted_riemann )/self.num_states_placeholder
+
+        if self.quadrature == "trapz":
+            self.loss_integral = self.loss_integral_trapz
+        else:
+            self.loss_integral = self.loss_integral_riemann
+
         self.loss = -1*self.loss_integral
 
     def add_actor_optimizer_op(self):
@@ -322,28 +377,35 @@ class EPG(PG):
             num_states = len(observations)
             observations = np.array(observations)
 
+            results_from_scipy = None
+            
             if self.discrete:
                 observations = np.reshape(np.tile(observations, (self.action_dim)), (self.action_dim*num_states, -1))
                 actions = np.arange(self.action_dim)
-                actions = np.tile(actions, (num_states))
-                weights = np.tile(np.ones(self.action_dim), (num_states))
+                weights = np.ones(self.action_dim)
             else:
+                actions = np.linspace(self.action_low,self.action_high, num=self.num_actions)
+                weights = (actions[1:]-actions[:-1])
+                #actions = np.random.uniform(self.action_low,self.action_high, size=100000)
                 if self.quadrature == "riemann":
-                    #actions = np.linspace(-1, 1, num=1000)
-                    #actions = np.random.uniform(self.action_low,self.action_high, size=100000)
-                    actions = np.linspace(self.action_low,self.action_high, num=1000)
-                    weights = (actions[1:]-actions[:-1])
                     actions = (actions[:-1]+actions[1:])/2.
-                    observations = np.reshape(np.tile(observations, len(actions)), (len(actions)*num_states, -1))
-                    weights = np.tile(weights, (num_states))
-                    actions = np.tile(actions, (num_states))
-                    print(actions.shape)
-                else:
-                    results = integrate.quad(function_to_integrate, self.action_low, self.action_high, args=(observation,), full_output=1, maxp1=100)
-            #results = integrate.quadrature(function_to_integrate, self.action_low, self.action_high, args=(observation,), vec_func=False)
+                # else:
+                #     results = integrate.quad(function_to_integrate, self.action_low, self.action_high, args=(observation,), full_output=1, maxp1=100)
+                results_from_scipy = None
+                # result_list = []
+                # for observation in observations:
+                #     results = integrate.quadrature(function_to_integrate, self.action_low, self.action_high, args=(observation,), vec_func=False)
+                #     result_list.append(results[0])
+                # results_from_scipy = np.mean(result_list)
+
+                observations = np.reshape(np.tile(observations, len(actions)), (len(actions)*num_states, -1))
+            
+            actions = np.tile(actions, (num_states))
+            weights = np.tile(weights, (num_states))
             actions = actions[:, None]
             weights = weights[:, None]
-            _ , loss_integral, loss_integrand_weighted, prob, critic_output = self.sess.run([self.train_op, self.loss_integral, self.loss_integrand_weighted, self.prob, self.critic_output], feed_dict={
+
+            _ , prob, loss_integral, critic_output = self.sess.run([self.train_op, self.prob, self.loss_integral, self.critic_output], feed_dict={
                                                 self.observation_placeholder : observations,
                                                 self.action_placeholder : actions,
                                                 self.weights_placeholder: weights,
@@ -351,7 +413,7 @@ class EPG(PG):
 
             #print("shapes --- prob: {} | critic_output: {} | loss_integrand: {}".format(prob.shape, critic_output.shape, loss_integrand.shape))
             #print("integral --- riemann: {} | scipy : {}".format(loss_integral, results[0]))
-            print("integral --- riemann: {}".format(loss_integral))
+            print("integral --- {}: {} | scipy : {}".format(self.quadrature, loss_integral, results_from_scipy))
             # print("")
             stats["loss_integral"] = loss_integral
         return stats
