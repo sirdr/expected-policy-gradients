@@ -67,7 +67,7 @@ def learn(env, config, seed = 7):
     experience = ReplayBuffer()
     noise = NormalActionNoise(0, 0.1, size=env.action_space.shape[0])
 
-    config.batch_size = 100
+    config.batch_size = 1000
 
     # initialize
     agent = TD3DDPG(env, config, experience, action_noise = noise)
