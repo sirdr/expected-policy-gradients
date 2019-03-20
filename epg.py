@@ -34,6 +34,7 @@ parser.add_argument('--save_as', type=str, default='results')
 parser.add_argument('--num_episodes', type=int, default=700)
 parser.add_argument('--num_eval_final', type=int, default=50)
 parser.add_argument('--seed', type=int, default=7)
+parser.add_argument('--record', action='store_true')
 
 # def evaluate_policy(agent, eval_episodes=10):
 #     avg_reward = 0.
@@ -52,7 +53,7 @@ parser.add_argument('--seed', type=int, default=7)
 #     print("---------------------------------------")
 #     return avg_reward
 
-def learn(env, config, quadrature, num_episodes = 5000, num_eval_final = 50, seed = 7, run=0):
+def learn(env, config, quadrature, num_episodes = 5000, num_eval_final = 50, seed = 7, run=0, record=False):
     """
     Apply procedures of training for a DDPG.
     """
@@ -168,7 +169,8 @@ def learn(env, config, quadrature, num_episodes = 5000, num_eval_final = 50, see
     stats["eval_episode_timesteps"] = eval_episode_timesteps
 
     agent.save_model()
-    agent.record()
+    if record:
+        agent.record()
     agent.close()
 
     return stats
@@ -192,7 +194,12 @@ if __name__ == '__main__':
 
     for i in range(args.runs):
         # train model
-        stats_dict = learn(env, config, args.quadrature, num_episodes=args.num_episodes, num_eval_final=args.num_eval_final, seed=seed, run=i)
+        stats_dict = learn(env, config, args.quadrature, 
+                            num_episodes=args.num_episodes, 
+                            num_eval_final=args.num_eval_final, 
+                            seed=seed, 
+                            run=i,
+                            record = args.record)
         runs[i] = stats_dict
     # save dictionary 
     pickle_out = open(outpath,"wb")
