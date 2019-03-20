@@ -94,10 +94,10 @@ class Actor(Model):
                     h = tf.layers.dense(h, self.output_dim, activation=None, kernel_initializer=out_weight_init, bias_initializer=out_weight_init)
                     return self.max_action*tf.nn.tanh(h)
                 else:
-                    h = tf.layers.dense(h, 2*self.output_dim, activation=None, kernel_initializer=out_weight_init, bias_initializer=out_weight_init)
-                    #h2 = tf.layers.dense(obs, self.output_dim, activation=None, kernel_initializer=out_weight_init, bias_initializer=out_weight_init)
-                    h1 = h[:, : self.output_dim]
-                    h2 = h[:, self.output_dim :]
+                    h1 = tf.layers.dense(h, self.output_dim, activation=None, kernel_initializer=out_weight_init, bias_initializer=out_weight_init)
+                    h2 = tf.layers.dense(obs, self.output_dim, activation=None, kernel_initializer=out_weight_init, bias_initializer=out_weight_init)
+                    # h1 = h[:, : self.output_dim]
+                    # h2 = h[:, self.output_dim :]
                 return self.max_action*tf.nn.tanh(h1), h2
             else:
                 h = tf.layers.dense(h, self.output_dim, activation=None, kernel_initializer=out_weight_init, bias_initializer=out_weight_init)

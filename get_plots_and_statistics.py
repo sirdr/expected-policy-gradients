@@ -153,12 +153,11 @@ def get_results(results, env, config):
 
         episodes = np.arange(len(avg_rewards))
 
-        lineplotCI(ax, episodes, avg_rewards)
+        lineplotCI(ax, episodes, avg_rewards, ci_lower, ci_upper, agent)
 
-
-    ax.set_title(title)
-    ax.set_xlabel(x_label)
-    ax.set_ylabel(y_label)
+    ax.set_title("")
+    ax.set_xlabel("Episodes")
+    ax.set_ylabel("Average Reward")
 
     # Display legend
     ax.legend(loc = 'best')
