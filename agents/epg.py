@@ -200,7 +200,7 @@ class EPG(PG):
                 action_means = action_output
             else:
                 action_means = action_output[0]
-                action_means = np.expand_dims(action_means, axis=1) 
+                action_means = tf.expand_dims(action_means, axis=1) 
                 log_std = action_output[1]
             shape = tf.shape(action_means)
             epsilon = tf.random_normal(shape)
