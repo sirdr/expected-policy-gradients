@@ -207,4 +207,6 @@ if __name__ == '__main__':
     pickle_out.close()
     pickle_in = open(outpath,"rb")
     example_dict = pickle.load(pickle_in)
-    print(example_dict)
+    print("Stored the following runs:")
+    for key, val in example_dict.items():
+        print("run {} | number of keys in stats dict: {}".format(key, len(val.keys())))
