@@ -118,10 +118,10 @@ def learn(env, config, num_episodes = 5000, num_eval_final = 50, batch_size = 10
                 stats["cummulative_timesteps"].append(total_timesteps)
                 stats["episode_timesteps"].append(episode_timesteps)
             
-            # Evaluate episode
-            if timesteps_since_eval >= config.eval_freq:
-                timesteps_since_eval %= config.eval_freq
-                agent.evaluate_policy()
+            # # Evaluate episode
+            # if timesteps_since_eval >= config.eval_freq:
+            #     timesteps_since_eval %= config.eval_freq
+            #     agent.evaluate_policy()
                 
             
             # Reset environment
