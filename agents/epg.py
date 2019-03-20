@@ -143,7 +143,7 @@ class EPG(PG):
                 self.num_actions = self.action_dim # this is for discretising the action space in continuous domain
                 self.quadrature = "discrete"
             else:
-                actor = Actor(self.action_dim, discrete=self.discrete, max_action=self.action_high)
+                actor = Actor(self.action_dim, discrete=self.discrete, max_action=self.action_high, learn_std=learn_std)
                 self.num_actions = num_actions # number of actions to use for integral
         self.actor = actor
 
@@ -199,9 +199,9 @@ class EPG(PG):
                     log_std = tf.get_variable("log_std", shape=(self.action_dim))
                 action_means = action_output
             else:
-                action_means = tf.expand_dims(action_means, axis=1) 
                 action_means = action_output[0]
                 log_std = action_output[1]
+                action_means = tf.expand_dims(action_means, axis=1) 
             shape = tf.shape(action_means)
             epsilon = tf.random_normal(shape)
             sampled_action = action_means + tf.multiply(epsilon, tf.exp(log_std))

@@ -120,12 +120,12 @@ def get_trajectories(results):
     return trajectories
 
 # Function based on code from https://www.datascience.com/blog/learn-data-science-intro-to-data-visualization-in-matplotlib  
-def lineplotCI(ax, x_data, y_data, low_CI, upper_CI):
+def lineplotCI(ax, x_data, y_data, low_CI, upper_CI, label):
     # Plot the data, set the linewidth, color and transparency of the
     # line, provide a label for the legend
-    ax.plot(x_data, y_data, lw = 1, color = '#539caf', alpha = 1, label = 'Fit')
+    ax.plot(x_data, y_data, lw = 1, color = '#539caf', alpha = 1, label = )
     # Shade the confidence interval
-    ax.fill_between(sorted_x, low_CI, upper_CI, color = '#539caf', alpha = 0.4, label = '95% CI')
+    ax.fill_between(sorted_x, low_CI, upper_CI, color = '#539caf', alpha = 0.4)
     # Label the axes and provide a title
 
 
