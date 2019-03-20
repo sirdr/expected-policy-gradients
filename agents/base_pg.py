@@ -263,6 +263,11 @@ class PG(object):
         save_path = self.saver.save(self.sess, save_path)
         print("Model saved in path: {}".format(save_path))
 
+    def restore(self):
+        load_path = os.path.join("./",self.config.output_path, self.agent_name, "run-{}".format(self.run))
+        load_path = os.path.join(load_path, "model.ckpt")
+        self.saver.restore(self.sess, load_path)
+
     def record(self):
          """
          Recreate an env and record a video for one episode

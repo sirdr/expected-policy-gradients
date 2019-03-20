@@ -35,6 +35,7 @@ parser.add_argument('--num_episodes', type=int, default=700)
 parser.add_argument('--num_eval_final', type=int, default=50)
 parser.add_argument('--seed', type=int, default=7)
 parser.add_argument('--record', action='store_true')
+parser.add_argument('--eval_from_checkpoint', action="store_true")
 
 # def evaluate_policy(agent, eval_episodes=10):
 #     avg_reward = 0.
@@ -178,35 +179,53 @@ def learn(env, config, quadrature, num_episodes = 5000, num_eval_final = 50, see
     # if agent.config.record:
     #     agent.record()
 
+def eval_from_checkpoint(env, config, quadrature, run=0):
+    """
+    Apply procedures of training for a DDPG.
+    """
+
+    agent = EPG(env, config, quadrature=quadrature, run=run)
+    agent.initialize()
+
+    agent.restore()
+    agent.record()
+    agent.close()
+
 
 
 if __name__ == '__main__':
     args = parser.parse_args()
     config = get_config(args.env_name)
     env = gym.make(config.env_name)
-    outfile = "{}.pickle".format(args.save_as)
-    outpath = os.path.join(config.output_path, "epg-{}".format(args.quadrature), outfile)
-    runs = {}
+    
     seed = args.seed
     env.seed(seed)
     tf.set_random_seed(seed)
     np.random.seed(seed)
 
-    for i in range(args.runs):
-        # train model
-        stats_dict = learn(env, config, args.quadrature, 
-                            num_episodes=args.num_episodes, 
-                            num_eval_final=args.num_eval_final, 
-                            seed=seed, 
-                            run=i,
-                            record = args.record)
-        runs[i] = stats_dict
-    # save dictionary 
-    pickle_out = open(outpath,"wb")
-    pickle.dump(runs, pickle_out)
-    pickle_out.close()
-    pickle_in = open(outpath,"rb")
-    example_dict = pickle.load(pickle_in)
-    print("Stored the following runs:")
-    for key, val in example_dict.items():
-        print("run {} | number of keys in stats dict: {}".format(key, len(val.keys())))
+    if args.eval_from_checkpoint:
+        for i in range(args.runs):
+            # train model
+            eval_from_checkpoint(env, config, args.quadrature, run=i)
+    else:
+        outfile = "{}.pickle".format(args.save_as)
+        outpath = os.path.join(config.output_path, "epg-{}".format(args.quadrature), outfile)
+        runs = {}
+        for i in range(args.runs):
+            # train model
+            stats_dict = learn(env, config, args.quadrature, 
+                                num_episodes=args.num_episodes, 
+                                num_eval_final=args.num_eval_final, 
+                                seed=seed, 
+                                run=i,
+                                record = args.record)
+            runs[i] = stats_dict
+        # save dictionary 
+        pickle_out = open(outpath,"wb")
+        pickle.dump(runs, pickle_out)
+        pickle_out.close()
+        pickle_in = open(outpath,"rb")
+        example_dict = pickle.load(pickle_in)
+        print("Stored the following runs:")
+        for key, val in example_dict.items():
+            print("run {} | number of keys in stats dict: {}".format(key, len(val.keys())))
