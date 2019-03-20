@@ -435,7 +435,7 @@ class EPG(PG):
             actions = actions[:, None]
             weights = weights[:, None]
 
-            _ , prob, loss_integral, loss_integrand, grad_norm = self.sess.run([self.train_op, self.prob, self.loss_integral, self.loss_integrand, self.grad_norm], feed_dict={
+            _ , prob, loss_integral, loss_integrand, grad_norm, log_std = self.sess.run([self.train_op, self.prob, self.loss_integral, self.loss_integrand, self.grad_norm, self.log_std], feed_dict={
                                                 self.observation_placeholder : observations,
                                                 self.action_placeholder : actions,
                                                 self.weights_placeholder: weights,
@@ -444,7 +444,8 @@ class EPG(PG):
             #print("shapes --- prob: {} | critic_output: {} | loss_integrand: {}".format(prob.shape, critic_output.shape, loss_integrand.shape))
             #print("integral --- riemann: {} | scipy : {}".format(loss_integral, results[0]))
             #print("integral --- {}: {} | scipy : {}".format(self.quadrature, loss_integral, results_from_scipy))
-            # print("")
+            print("std:", np.exp(log_std))
+            print("log_std:", log_std)
 
             stats["grad_norms"].append(grad_norm)
             if stats["first_integrand"] is None:
