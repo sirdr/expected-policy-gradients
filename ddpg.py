@@ -71,6 +71,10 @@ def learn(env, config, num_episodes = 5000, num_eval_final = 50, batch_size = 10
     Apply procedures of training for a DDPG.
     """
 
+    env.seed(seed)
+    tf.set_random_seed(seed)
+    np.random.seed(seed)
+
     experience = ReplayBuffer()
     noise = NormalActionNoise(0, 0.1, size=env.action_space.shape[0])
 
@@ -194,9 +198,6 @@ if __name__ == '__main__':
     config = get_config(args.env_name)
     env = gym.make(config.env_name)
     seed = args.seed
-    env.seed(seed)
-    tf.set_random_seed(seed)
-    np.random.seed(seed)
 
     if args.eval_from_checkpoint:
         for i in range(args.runs):
