@@ -444,8 +444,8 @@ class EPG(PG):
             #print("shapes --- prob: {} | critic_output: {} | loss_integrand: {}".format(prob.shape, critic_output.shape, loss_integrand.shape))
             #print("integral --- riemann: {} | scipy : {}".format(loss_integral, results[0]))
             #print("integral --- {}: {} | scipy : {}".format(self.quadrature, loss_integral, results_from_scipy))
-            print("std:", np.exp(log_std))
-            print("log_std:", log_std)
+            # print("std:", np.exp(log_std))
+            # print("log_std:", log_std)
 
             stats["grad_norms"].append(grad_norm)
             if stats["first_integrand"] is None:
