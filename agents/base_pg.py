@@ -36,7 +36,7 @@ class PG(object):
     """
     Abstract Class for implementing a Policy Gradient Based Algorithm
     """
-    def __init__(self, env, config, logger=None):
+    def __init__(self, env, config, run=0, logger=None):
         """
         Initialize Policy Gradient Class
 
@@ -74,6 +74,9 @@ class PG(object):
             self.obs_high = self.env.observation_space.high
             self.obs_low = self.env.observation_space.low
 
+        self.agent_name = "pg"
+        self.run = run
+
 
     def add_placeholders_op(self):
         """
@@ -108,6 +111,7 @@ class PG(object):
         self.add_summary()
         # initiliaze all variables
         init = tf.global_variables_initializer()
+        self.saver = tf.train.Saver()
         self.sess.run(init)
 
     def add_summary(self):
@@ -131,7 +135,7 @@ class PG(object):
 
         # logging
         self.merged = tf.summary.merge_all()
-        self.file_writer = tf.summary.FileWriter(self.config.output_path,self.sess.graph)
+        # self.file_writer = tf.summary.FileWriter(self.config.output_path,self.sess.graph)
 
     def init_averages(self):
         """
@@ -228,30 +232,42 @@ class PG(object):
 
         return paths, episode_rewards
 
+    def close(self):
+        self.sess.close()
+        tf.reset_default_graph()
+
     def train(self):
         """
         Performs training
         """
         raise NotImplementedError()
 
-    def evaluate(self, env=None, num_episodes=1):
-        """
-        Evaluates the return for num_episodes episodes.
-        Not used right now, all evaluation statistics are computed during training
-        episodes.
-        """
-        if env==None: env = self.env
-        paths, rewards = self.sample_path(env, num_episodes)
-        avg_reward = np.mean(rewards)
-        sigma_reward = np.sqrt(np.var(rewards) / len(rewards))
-        msg = "Average reward: {:04.2f} +/- {:04.2f}".format(avg_reward, sigma_reward)
-        self.logger.info(msg)
-        return avg_reward
+    # def evaluate(self, env=None, num_episodes=1):
+    #     """
+    #     Evaluates the return for num_episodes episodes.
+    #     Not used right now, all evaluation statistics are computed during training
+    #     episodes.
+    #     """
+    #     if env==None: env = self.env
+    #     paths, rewards = self.sample_path(env, num_episodes)
+    #     avg_reward = np.mean(rewards)
+    #     sigma_reward = np.sqrt(np.var(rewards) / len(rewards))
+    #     msg = "Average reward: {:04.2f} +/- {:04.2f}".format(avg_reward, sigma_reward)
+    #     self.logger.info(msg)
+    #     return avg_reward
+    def save_model(self):
+        save_path = os.path.join("./",self.config.output_path, self.agent_name, "run-{}".format(self.run))
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
+        save_path = os.path.join( save_path, "model.ckpt")
+        save_path = self.saver.save(self.sess, save_path)
+        print("Model saved in path: {}".format(save_path))
 
     def record(self):
          """
          Recreate an env and record a video for one episode
          """
          env = gym.make(self.config.env_name)
-         env = gym.wrappers.Monitor(env, self.config.record_path, video_callable=lambda x: True, resume=True)
-         self.evaluate(env, 1)
+         record_path = os.path.join(self.config.record_path, self.agent_name, "run-{}".format(self.run))
+         env = gym.wrappers.Monitor(env,record_path, video_callable=lambda x: True, resume=True)
+         self.evaluate_policy(env, 1)

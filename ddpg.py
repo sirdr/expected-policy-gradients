@@ -33,11 +33,19 @@ from experience import ReplayBuffer
 from noise import NormalActionNoise
 from agents.td3_ddpg import TD3DDPG
 
+import pickle
+
 from IPython import embed
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--env_name', required=True, type=str,
                     choices=['cartpole','pendulum', 'cheetah'])
+parser.add_argument('--runs', type=int, default=1)
+parser.add_argument('--save_as', type=str, default='results')
+parser.add_argument('--num_episodes', type=int, default=2000)
+parser.add_argument('--num_eval_final', type=int, default=50)
+parser.add_argument('--batch_size', type=int, default=100)
+parser.add_argument('--seed', type=int, default=7)
 
 # def evaluate_policy(agent, eval_episodes=10):
 #     avg_reward = 0.
@@ -56,21 +64,18 @@ parser.add_argument('--env_name', required=True, type=str,
 #     print("---------------------------------------")
 #     return avg_reward
 
-def learn(env, config, seed = 7):
+def learn(env, config, num_episodes = 5000, num_eval_final = 50, batch_size = 100, seed = 7, run=0):
     """
     Apply procedures of training for a DDPG.
     """
-    env.seed(seed)
-    tf.set_random_seed(seed)
-    np.random.seed(seed)
 
     experience = ReplayBuffer()
     noise = NormalActionNoise(0, 0.1, size=env.action_space.shape[0])
 
-    config.batch_size = 1000
+    config.batch_size = batch_size
 
     # initialize
-    agent = TD3DDPG(env, config, experience, action_noise = noise)
+    agent = TD3DDPG(env, config, experience, action_noise = noise, run=run)
     agent.initialize()
 
     # record one game at the beginning
@@ -79,25 +84,42 @@ def learn(env, config, seed = 7):
     # model
         
     # Evaluate untrained policy
-    evaluations = [agent.evaluate_policy()] 
+    agent.evaluate_policy()
 
     total_timesteps = 0
     timesteps_since_eval = 0
     episode_num = 0
     done = True 
 
-    while total_timesteps < config.max_timesteps:
+    stats = {}
+    stats["episode_rewards"] = []
+    stats["evaluation_rewards"] = []
+    stats["grad_norms"] = [] # TODO
+    stats["cummulative_timesteps"] = []
+    stats["episode_timesteps"] = []
+    stats["eval_episode_timesteps"] = []
+    stats["eval_cummulative_timesteps"] = []
+    stats["num_episodes"] = num_episodes
+    stats["num_eval_final"] = num_eval_final
+    stats["seed"] = seed
+    stats["agent"] = agent.agent_name
+    stats["env"] = config.env_name
+
+    while episode_num < num_episodes: #total_timesteps < config.max_timesteps:
         
         if done: 
 
             if total_timesteps != 0: 
                 print("Total T: {} Episode Num: {} Episode T: {} Reward: {}".format(total_timesteps, episode_num, episode_timesteps, episode_reward))
-                agent.train(episode_timesteps)
+                stats = agent.train(episode_timesteps, stats=stats)
+                stats["episode_rewards"].append(episode_reward)
+                stats["cummulative_timesteps"].append(total_timesteps)
+                stats["episode_timesteps"].append(episode_timesteps)
             
             # Evaluate episode
-            if timesteps_since_eval >= config.eval_freq:
-                timesteps_since_eval %= config.eval_freq
-                evaluations.append(agent.evaluate_policy())
+            # if timesteps_since_eval >= config.eval_freq:
+            #     timesteps_since_eval %= config.eval_freq
+            #     evaluations.append(agent.evaluate_policy())
                 
             
             # Reset environment
@@ -128,7 +150,16 @@ def learn(env, config, seed = 7):
         timesteps_since_eval += 1
         
     # Final evaluation 
-    evaluations.append(agent.evaluate_policy())
+    rewards, eval_cummulative_timesteps, eval_episode_timesteps = agent.evaluate_policy(eval_episodes=num_eval_final)
+    stats["evaluation_rewards"] = rewards
+    stats["eval_cummulative_timesteps"] = eval_cummulative_timesteps
+    stats["eval_episode_timesteps"] = eval_episode_timesteps
+
+    agent.save_model()
+    agent.record()
+    agent.close()
+
+    return stats
 
 
     # if agent.config.record:
@@ -137,8 +168,30 @@ def learn(env, config, seed = 7):
 
 
 if __name__ == '__main__':
+
     args = parser.parse_args()
     config = get_config(args.env_name)
     env = gym.make(config.env_name)
-    # train model
-    learn(env, config)
+    outfile = "{}.pickle".format(args.save_as)
+    outpath = os.path.join(config.output_path, "td3ddpg",  outfile)
+    runs = {}
+    seed = args.seed
+    env.seed(seed)
+    tf.set_random_seed(seed)
+    np.random.seed(seed)
+    for i in range(args.runs):
+        # train model
+        stats_dict = learn(env, config, 
+                    num_episodes=args.num_episodes, 
+                    num_eval_final=args.num_eval_final, 
+                    batch_size=args.batch_size,
+                    seed=seed,
+                    run=i)
+        runs[i] = stats_dict
+    # save dictionary 
+    pickle_out = open(outpath,"wb")
+    pickle.dump(runs, pickle_out)
+    pickle_out.close()
+    pickle_in = open(outpath,"rb")
+    example_dict = pickle.load(pickle_in)
+    print(example_dict)

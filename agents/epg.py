@@ -123,9 +123,10 @@ class EPG(PG):
     """
     Class for Expected Policy Gradients, Inherets from the generic Policy Gradient class
     """
-    def __init__(self, env, config, actor=None, critic=None, quadrature = 'riemann', logger=None, num_actions=1000):
+    def __init__(self, env, config, actor=None, critic=None, quadrature = 'riemann', logger=None, num_actions=1000, run=0):
 
-        super().__init__(env, config, logger=logger)
+        super().__init__(env, config, run=run, logger=logger)
+        self.agent_name = "epg-{}".format(quadrature)
         if actor is None:
             if self.discrete:
                 actor = Actor(self.action_dim, discrete=self.discrete)
@@ -227,6 +228,8 @@ class EPG(PG):
         v_list = self.actor.vars
         #update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS) # Needed for Batch Normalization to work properly
         self.actor_grads_and_vars = opt.compute_gradients(self.loss, var_list=v_list)
+        grads = [g for g,v in self.actor_grads_and_vars]
+        self.grad_norm = tf.global_norm(grads)
         self.train_op = opt.apply_gradients(self.actor_grads_and_vars)
         #self.train_op = tf.group([train_op, update_ops])
 
@@ -300,6 +303,7 @@ class EPG(PG):
         self.add_summary()
         # initiliaze all variables
         init = tf.global_variables_initializer()
+        self.saver = tf.train.Saver()
         self.sess.run(init)
         self.sess.run([self.init_target_actor_op, self.init_target_critic_op])
 
@@ -331,6 +335,12 @@ class EPG(PG):
     def evaluate_policy(self, env=None, eval_episodes=10):
         if env==None: env = self.env
         rewards = []
+        eval_cummulative_timesteps = []
+        eval_episode_timesteps = []
+
+        total_timesteps = 0
+        episode_timesteps = 0
+
         for _ in range(eval_episodes):
             obs = env.reset()
             done = False
@@ -341,18 +351,22 @@ class EPG(PG):
                     action = np.clip(action, self.action_low, self.action_high)
                 obs, reward, done, _ = env.step(action)
                 total_reward += reward
+                episode_timesteps += 1
+                total_timesteps += 1
+            eval_episode_timesteps.append(episode_timesteps)
+            eval_cummulative_timesteps.append(total_timesteps)
+            episode_timesteps = 0
             rewards.append(total_reward)
+
         avg_reward = np.mean(rewards)
         sigma_reward = np.sqrt(np.var(rewards) / len(rewards))
 
         print("---------------------------------------")
         print("Evaluation over {} episodes: {:04.2f} +/- {:04.2f}".format(eval_episodes, avg_reward, sigma_reward))
         print("---------------------------------------")
-        return rewards
+        return rewards, eval_cummulative_timesteps, eval_episode_timesteps
 
-    def train_actor(self, observations):
-
-        stats = {}
+    def train_actor(self, observations, stats={}):
 
         if self.quadrature == "analytic":
             pass
@@ -397,6 +411,8 @@ class EPG(PG):
                 #     results = integrate.quadrature(function_to_integrate, self.action_low, self.action_high, args=(observation,), vec_func=False)
                 #     result_list.append(results[0])
                 # results_from_scipy = np.mean(result_list)
+                if stats["integral_action_values"] is None:
+                    stats["integral_action_values"] = actions
 
                 observations = np.reshape(np.tile(observations, len(actions)), (len(actions)*num_states, -1))
             
@@ -405,7 +421,7 @@ class EPG(PG):
             actions = actions[:, None]
             weights = weights[:, None]
 
-            _ , prob, loss_integral, critic_output = self.sess.run([self.train_op, self.prob, self.loss_integral, self.critic_output], feed_dict={
+            _ , prob, loss_integral, loss_integrand, grad_norm = self.sess.run([self.train_op, self.prob, self.loss_integral, self.loss_integrand, self.grad_norm], feed_dict={
                                                 self.observation_placeholder : observations,
                                                 self.action_placeholder : actions,
                                                 self.weights_placeholder: weights,
@@ -413,9 +429,15 @@ class EPG(PG):
 
             #print("shapes --- prob: {} | critic_output: {} | loss_integrand: {}".format(prob.shape, critic_output.shape, loss_integrand.shape))
             #print("integral --- riemann: {} | scipy : {}".format(loss_integral, results[0]))
-            print("integral --- {}: {} | scipy : {}".format(self.quadrature, loss_integral, results_from_scipy))
+            #print("integral --- {}: {} | scipy : {}".format(self.quadrature, loss_integral, results_from_scipy))
             # print("")
-            stats["loss_integral"] = loss_integral
+
+            stats["grad_norms"].append(grad_norm)
+            if stats["first_integrand"] is None:
+                stats["first_integrand"] = loss_integrand
+            stats["last_integrand"] = loss_integrand
+            stats["loss_integral"].append(loss_integral)
+
         return stats
 
     def train_critic(self, observation, action, reward, next_observation, done):

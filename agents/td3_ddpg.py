@@ -93,8 +93,9 @@ class TD3DDPG(PG):
     """
     Class for Expected Policy Gradients, Inherets from the generic Policy Gradient class
     """
-    def __init__(self, env, config, experience, actor=None, critic=None, action_noise = None, logger=None):
-        super().__init__(env, config, logger=logger)
+    def __init__(self, env, config, experience, actor=None, critic=None, action_noise = None, logger=None, run=0):
+        super().__init__(env, config, run=run, logger=logger)
+        self.agent_name = "td3ddpg"
         if actor is None:
             actor = Actor(self.action_dim, max_action=self.action_high)
         self.actor = actor
@@ -141,6 +142,8 @@ class TD3DDPG(PG):
         v_list = self.actor.vars
         #update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS) # Needed for Batch Normalization to work properly
         self.actor_grads_and_vars = opt.compute_gradients(self.loss, var_list=v_list)
+        grads = [g for g,v in self.actor_grads_and_vars]
+        self.grad_norm = tf.global_norm(grads)
         self.train_op = opt.apply_gradients(self.actor_grads_and_vars)
 
     def add_critic_loss_op(self, scope="critic"):
@@ -221,6 +224,7 @@ class TD3DDPG(PG):
         self.add_summary()
         # initiliaze all variables
         init = tf.global_variables_initializer()
+        self.saver = tf.train.Saver()
         self.sess.run(init)
         self.sess.run([self.init_target_actor_op, self.init_target_critic_op])
 
@@ -256,6 +260,11 @@ class TD3DDPG(PG):
     def evaluate_policy(self, env=None, eval_episodes=10):
         if env==None: env = self.env
         rewards = []
+        eval_cummulative_timesteps = []
+        eval_episode_timesteps = []
+
+        total_timesteps = 0
+        episode_timesteps = 0
         for _ in range(eval_episodes):
             obs = env.reset()
             done = False
@@ -264,16 +273,22 @@ class TD3DDPG(PG):
                 action, _ = self.act(np.array(obs), apply_noise=False, compute_q=False)
                 obs, reward, done, _ = env.step(action)
                 total_reward += reward
+                eval_episode_timesteps.append(episode_timesteps)
+                eval_cummulative_timesteps.append(total_timesteps)
+                episode_timesteps = 0
             rewards.append(total_reward)
+            episode_timesteps += 1
+            total_timesteps += 1
+
         avg_reward = np.mean(rewards)
         sigma_reward = np.sqrt(np.var(rewards) / len(rewards))
 
         print("---------------------------------------")
         print("Evaluation over {} episodes: {:04.2f} +/- {:04.2f}".format(eval_episodes, avg_reward, sigma_reward))
         print("---------------------------------------")
-        return avg_reward
+        return rewards, eval_cummulative_timesteps, eval_episode_timesteps
 
-    def train(self, iterations):
+    def train(self, iterations, stats={}):
 
         for it in range(iterations):
 
@@ -282,12 +297,16 @@ class TD3DDPG(PG):
 
             self.update_critic(actions, observations, next_observations, rewards, dones)
 
-            _, loss_integrand = self.sess.run([self.train_op, self.loss_integrand], feed_dict={
+            _, grad_norm = self.sess.run([self.train_op, self.grad_norm], feed_dict={
                         self.observation_placeholder : observations,
                         self.action_placeholder : actions})
             #print("loss integrand: {}".format(loss_integrand))
 
+            stats["grad_norms"].append(grad_norm)
+
             self.sess.run([self.update_target_critic_op, self.update_target_actor_op], feed_dict={})
+
+            return stats
 
         
 

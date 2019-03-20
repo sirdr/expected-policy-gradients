@@ -20,6 +20,8 @@ from experience import ReplayBuffer
 from noise import NormalActionNoise
 from agents.epg import EPG
 
+import pickle
+
 from IPython import embed
 
 parser = argparse.ArgumentParser()
@@ -27,6 +29,11 @@ parser.add_argument('--env_name', required=True, type=str,
                     choices=['cartpole','pendulum', 'cheetah'])
 parser.add_argument('--quadrature', type=str, default='riemann',
                     choices=['riemann','trapz'])
+parser.add_argument('--runs', type=int, default=1)
+parser.add_argument('--save_as', type=str, default='results')
+parser.add_argument('--num_episodes', type=int, default=700)
+parser.add_argument('--num_eval_final', type=int, default=50)
+parser.add_argument('--seed', type=int, default=7)
 
 # def evaluate_policy(agent, eval_episodes=10):
 #     avg_reward = 0.
@@ -45,19 +52,15 @@ parser.add_argument('--quadrature', type=str, default='riemann',
 #     print("---------------------------------------")
 #     return avg_reward
 
-def learn(env, config, quadrature, num_episodes = 5000, num_eval_final = 50, seed = 7):
+def learn(env, config, quadrature, num_episodes = 5000, num_eval_final = 50, seed = 7, run=0):
     """
     Apply procedures of training for a DDPG.
     """
 
-    env.seed(seed)
-    tf.set_random_seed(seed)
-    np.random.seed(seed)
-
     config.batch_size = 100
 
     # initialize
-    agent = EPG(env, config, quadrature=quadrature)
+    agent = EPG(env, config, quadrature=quadrature, run=run)
     agent.initialize()
 
     if not agent.discrete:
@@ -69,7 +72,7 @@ def learn(env, config, quadrature, num_episodes = 5000, num_eval_final = 50, see
     # model
         
     # Evaluate untrained policy
-    evaluations = [agent.evaluate_policy()] 
+    agent.evaluate_policy() 
 
     total_timesteps = 0
     timesteps_since_eval = 0
@@ -82,12 +85,33 @@ def learn(env, config, quadrature, num_episodes = 5000, num_eval_final = 50, see
     stats = {}
     stats["episode_rewards"] = []
     stats["evaluation_rewards"] = []
+    stats["grad_norms"] = [] # TODO
+    stats["first_integrand"] = None
+    stats["last_integrand"] = None
+    stats["cummulative_timesteps"] = []
+    stats["episode_timesteps"] = []
+    stats["eval_episode_timesteps"] = []
+    stats["eval_cummulative_timesteps"] = []
+    stats["integral_action_values"] = None # TODO
+    stats["loss_integral"] = []
+    stats["update_actor_freq"] = update_actor_freq
+    stats["num_episodes"] = num_episodes
+    stats["num_eval_final"] = num_eval_final
+    stats["seed"] = seed
+    stats["agent"] = agent.agent_name
+    stats["quadrature"] = quadrature
+    stats["env"] = config.env_name
+    stats["num_actor_updates"] = 0
+
     while episode_num < num_episodes: #total_timesteps < config.max_timesteps:
         
         if done: 
 
             if total_timesteps != 0: 
                 print("Total T: {} Episode Num: {} Episode T: {} Reward: {}".format(total_timesteps, episode_num, episode_timesteps, episode_reward))
+                stats["episode_rewards"].append(episode_reward)
+                stats["cummulative_timesteps"].append(total_timesteps)
+                stats["episode_timesteps"].append(episode_timesteps)
             
             # Evaluate episode
             # if timesteps_since_eval >= config.eval_freq:
@@ -107,7 +131,8 @@ def learn(env, config, quadrature, num_episodes = 5000, num_eval_final = 50, see
         #if total_timesteps%max(update_actor_freq, 10) == 0:
         if total_timesteps%update_actor_freq == 0:
             #update_actor_freq -= 1
-            stats = agent.train_actor(observation_list)
+            stats = agent.train_actor(observation_list, stats=stats)
+            stats["num_actor_updates"] += 1
             observation_list = []
 
         # Select action randomly or according to policy
@@ -136,11 +161,17 @@ def learn(env, config, quadrature, num_episodes = 5000, num_eval_final = 50, see
         total_timesteps += 1
         timesteps_since_eval += 1
 
-
-        
     # Final evaluation 
-    evaluations.append(agent.evaluate_policy(eval_episodes=num_eval_final))
+    rewards, eval_cummulative_timesteps, eval_episode_timesteps = agent.evaluate_policy(eval_episodes=num_eval_final)
+    stats["evaluation_rewards"] = rewards
+    stats["eval_cummulative_timesteps"] = eval_cummulative_timesteps
+    stats["eval_episode_timesteps"] = eval_episode_timesteps
 
+    agent.save_model()
+    agent.record()
+    agent.close()
+
+    return stats
 
     # if agent.config.record:
     #     agent.record()
@@ -151,5 +182,22 @@ if __name__ == '__main__':
     args = parser.parse_args()
     config = get_config(args.env_name)
     env = gym.make(config.env_name)
-    # train model
-    learn(env, config, args.quadrature)
+    outfile = "{}.pickle".format(args.save_as)
+    outpath = os.path.join(config.output_path, "epg-{}".format(args.quadrature), outfile)
+    runs = {}
+    seed = args.seed
+    env.seed(seed)
+    tf.set_random_seed(seed)
+    np.random.seed(seed)
+
+    for i in range(args.runs):
+        # train model
+        stats_dict = learn(env, config, args.quadrature, num_episodes=args.num_episodes, num_eval_final=args.num_eval_final, seed=seed, run=i)
+        runs[i] = stats_dict
+    # save dictionary 
+    pickle_out = open(outpath,"wb")
+    pickle.dump(runs, pickle_out)
+    pickle_out.close()
+    pickle_in = open(outpath,"rb")
+    example_dict = pickle.load(pickle_in)
+    print(example_dict)
