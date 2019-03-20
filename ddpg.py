@@ -136,6 +136,7 @@ def learn(env, config, num_episodes = 5000, num_eval_final = 50, batch_size = 10
             action = env.action_space.sample()
         else:
             action, _ = agent.act(np.array(observation), apply_noise=True, compute_q=False)
+            action = np.squeeze(action, axis=1)
 
         # Perform action
         new_observation, reward, done, _ = env.step(action) 
