@@ -143,7 +143,12 @@ def learn(env, config, num_episodes = 5000, num_eval_final = 50, batch_size = 10
         episode_reward += reward
 
         # Store data in replay buffer
+        for h in [observation, action, reward, new_observation, done_bool]:
+            print(h.shape)
+
         agent.add_experience(observation, action, reward, new_observation, done_bool)
+
+
 
         observation = new_observation
 
