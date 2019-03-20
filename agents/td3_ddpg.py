@@ -297,6 +297,9 @@ class TD3DDPG(PG):
 
             self.update_critic(actions, observations, next_observations, rewards, dones)
 
+            #self.grad_norm 
+            #self.grad_norm 
+
             _, grad_norm = self.sess.run([self.train_op, self.grad_norm], feed_dict={
                         self.observation_placeholder : observations,
                         self.action_placeholder : actions})
@@ -306,7 +309,7 @@ class TD3DDPG(PG):
 
             self.sess.run([self.update_target_critic_op, self.update_target_actor_op], feed_dict={})
 
-            return stats
+        return stats
 
         
 
