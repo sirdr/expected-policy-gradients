@@ -2,3 +2,4 @@ __pycache__/
 *.pyc
 results/
 *.pickle
+results_copy/

@@ -64,11 +64,12 @@ parser.add_argument('--env_name', required=True, type=str,
 #         return output
 
 class Actor(Model):
-    def __init__(self, output_dim, name='actor', discrete = False, max_action=1):
+    def __init__(self, output_dim, name='actor', discrete = False, max_action=1, learn_std=False):
         super().__init__(name=name)
         self.output_dim = output_dim
         self.max_action = max_action
         self.discrete = discrete
+        self.learn_std = learn_std
 
     def __call__(self,
                 obs,
@@ -84,14 +85,21 @@ class Actor(Model):
             h = tf.layers.dense(h, 300, activation=None, kernel_initializer=tf.initializers.variance_scaling())
             h = tf.nn.relu(h)
             out_weight_init = tf.initializers.random_uniform(-3e-3, 3e-3)
-            h = tf.layers.dense(h, self.output_dim, activation=None, kernel_initializer=out_weight_init, bias_initializer=out_weight_init)
 
             if not self.discrete:
                 #output_logstd = tf.layers.dense(obs, self.num_actions, activation=None, kernel_initializer=out_weight_init, bias_initializer=out_weight_init)
                 #return [self.max_action*output, output_logstd]
                 #return self.max_action*output
-                return self.max_action*tf.nn.tanh(h)
+                if self.learn_std:
+                    h = tf.layers.dense(h, self.output_dim, activation=None, kernel_initializer=out_weight_init, bias_initializer=out_weight_init)
+                    return self.max_action*tf.nn.tanh(h)
+                else:
+                    h = tf.layers.dense(h, 2*self.output_dim, activation=None, kernel_initializer=out_weight_init, bias_initializer=out_weight_init)
+                    h1 = h[:, : output_dim]
+                    h2 = h[:, output_dim :]
+                return self.max_action*tf.nn.tanh(h1), h2
             else:
+                h = tf.layers.dense(h, self.output_dim, activation=None, kernel_initializer=out_weight_init, bias_initializer=out_weight_init)
                 output = tf.nn.softmax(h)
                 return output
 
@@ -123,10 +131,11 @@ class EPG(PG):
     """
     Class for Expected Policy Gradients, Inherets from the generic Policy Gradient class
     """
-    def __init__(self, env, config, actor=None, critic=None, quadrature = 'riemann', logger=None, num_actions=1000, run=0):
+    def __init__(self, env, config, actor=None, critic=None, quadrature = 'riemann', logger=None, num_actions=1000, run=0, learn_std=False):
 
         super().__init__(env, config, run=run, logger=logger)
         self.agent_name = "epg-{}".format(quadrature)
+        self.learn_std = learn_std
         if actor is None:
             if self.discrete:
                 actor = Actor(self.action_dim, discrete=self.discrete)
@@ -183,10 +192,14 @@ class EPG(PG):
             return action_logits, sampled_action, None
         else:
             action_output = actor(obs) #training=self.training_placeholder)
-            action_means = action_output#[0]
             #log_std = action_output[1]
-            with tf.variable_scope(actor.name, reuse=tf.AUTO_REUSE):
-                log_std = tf.get_variable("log_std", shape=(self.action_dim))
+            if not self.learn_std:
+                with tf.variable_scope(actor.name, reuse=tf.AUTO_REUSE):
+                    log_std = tf.get_variable("log_std", shape=(self.action_dim))
+                action_means = action_output
+            else:
+                action_means = action_output[0]
+                action_means = action_output[1]
             shape = tf.shape(action_means)
             epsilon = tf.random_normal(shape)
             sampled_action = action_means + tf.multiply(epsilon, tf.exp(log_std))

@@ -36,6 +36,7 @@ parser.add_argument('--num_eval_final', type=int, default=50)
 parser.add_argument('--seed', type=int, default=7)
 parser.add_argument('--record', action='store_true')
 parser.add_argument('--eval_from_checkpoint', action="store_true")
+parser.add_argument('--learn_std', action="store_true")
 
 # def evaluate_policy(agent, eval_episodes=10):
 #     avg_reward = 0.
@@ -54,7 +55,7 @@ parser.add_argument('--eval_from_checkpoint', action="store_true")
 #     print("---------------------------------------")
 #     return avg_reward
 
-def learn(env, config, quadrature, num_episodes = 5000, num_eval_final = 50, seed = 7, run=0, record=False):
+def learn(env, config, quadrature, num_episodes = 5000, num_eval_final = 50, seed = 7, run=0, record=False, learn_std=False):
     """
     Apply procedures of training for a DDPG.
     """
@@ -62,7 +63,7 @@ def learn(env, config, quadrature, num_episodes = 5000, num_eval_final = 50, see
     config.batch_size = 100
 
     # initialize
-    agent = EPG(env, config, quadrature=quadrature, run=run)
+    agent = EPG(env, config, quadrature=quadrature, run=run, learn_std=learn_std)
     agent.initialize()
 
     if not agent.discrete:
@@ -218,7 +219,8 @@ if __name__ == '__main__':
                                 num_eval_final=args.num_eval_final, 
                                 seed=seed, 
                                 run=i,
-                                record = args.record)
+                                record = args.record,
+                                learn_std = args.learn_std)
             runs[i] = stats_dict
         # save dictionary 
         pickle_out = open(outpath,"wb")

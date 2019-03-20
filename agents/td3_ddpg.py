@@ -273,12 +273,12 @@ class TD3DDPG(PG):
                 action, _ = self.act(np.array(obs), apply_noise=False, compute_q=False)
                 obs, reward, done, _ = env.step(action)
                 total_reward += reward
-                eval_episode_timesteps.append(episode_timesteps)
-                eval_cummulative_timesteps.append(total_timesteps)
-                episode_timesteps = 0
+                episode_timesteps += 1
+                total_timesteps += 1
+            eval_episode_timesteps.append(episode_timesteps)
+            eval_cummulative_timesteps.append(total_timesteps)
             rewards.append(total_reward)
-            episode_timesteps += 1
-            total_timesteps += 1
+            episode_timesteps = 0
 
         avg_reward = np.mean(rewards)
         sigma_reward = np.sqrt(np.var(rewards) / len(rewards))
