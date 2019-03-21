@@ -3,7 +3,7 @@
 To run DDPG on the `InvertedPendulum-v1` openAI gym environment using the model outlined in [this paper](https://arxiv.org/pdf/1802.09477.pdf) simply use:
 
 ```
-python ddpg.py --env_name pendulum
+python ddpg.py --env_name pendulum --number
 ```
 
 The `--learn_std` flag uses a one-layer neural network to learn the standard deviation of the output actions given the state. Without this flag, the agent learns a single standard deviation for all states.
@@ -16,6 +16,8 @@ This command should only be used locally (or if you can figure out how to using 
 ```
 python epg.py --env_name pendulum --quadrature trapz --eval_from_checkpoint --runs 1 --learn_std
 ```
+
+Also note that if a given model was trained with the `--learn_std` flag you will need to specify it as I have done above. If the model was **not** trained with `--learn_std` you must make sure the flag is **not** used.
 
 ## Getting Graphs and Summary Statistics
 
