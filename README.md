@@ -15,10 +15,13 @@ The `--learn_std` flag uses a one-layer neural network to learn the standard dev
 python epg.py --env_name pendulum --quadrature trapz --eval_from_checkpoint --runs 5 --learn_std
 ```
 
-Notes for myself:
 
-to get files from ec2:
+## Running on the Cloud
 
+As the batch size for DNEPG especially is somewhat large, we recommend training DNEPG using a GPU. We did this using an Amazon Web Services EC2 instance initialized with the Ubuntu Deep Learning AMI and a `p2.xlarge` GPU.
+
+
+To get files from the EC2 instance:
 ```
-scp -i ~/aws/aws.pem -r ubuntu@ec2-52-40-19-142.us-west-2.compute.amazonaws.com:~/expected-policy-gradients/results/ ./
+scp -i ~/aws/aws.pem -r {user}@{ec2-address}:~/expected-policy-gradients/results/ ./
 ```
