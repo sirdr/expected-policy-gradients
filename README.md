@@ -1,5 +1,9 @@
 # Deep Numerical Expected Policy Gradients
 
+Final Project for Stanford's CS 234 (See Poster Below)
+
+![image](./cs234_poster.jpg)
+
 To run DDPG on the `InvertedPendulum-v1` openAI gym environment using the model outlined in [this paper](https://arxiv.org/pdf/1802.09477.pdf) simply use:
 
 ```
