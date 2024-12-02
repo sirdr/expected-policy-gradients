@@ -1,7 +1,6 @@
 # -*- coding: UTF-8 -*-
 
 """
-Expected Policy Gradients
 Author: Loren Amdahl-Culleton
 
 Notes and Credits: 
@@ -105,7 +104,7 @@ def learn(env, config, num_episodes = 5000, num_eval_final = 50, batch_size = 10
     stats["agent"] = agent.agent_name
     stats["env"] = config.env_name
 
-    while episode_num < num_episodes: #total_timesteps < config.max_timesteps:
+    while episode_num < num_episodes:
         
         if done: 
 
@@ -128,18 +127,44 @@ def learn(env, config, num_episodes = 5000, num_eval_final = 50, batch_size = 10
             episode_reward = 0
             episode_timesteps = 0
             episode_num += 1 
+            
+            # Extract the actual observation if it's a tuple
+            if isinstance(observation, tuple):
+                observation = observation[0]
+
+            # Ensure observation is a NumPy array
+            observation = np.array(observation, dtype=np.float32)
+
+            # Add a batch dimension if the observation is 1D
+            if observation.ndim == 1:
+                observation = observation[None, :]  # Add batch dimension
         
         # Select action randomly or according to policy
         if total_timesteps < config.start_timesteps:
             action = env.action_space.sample()
         else:
             action, _ = agent.act(np.array(observation), apply_noise=True, compute_q=False)
-            action = np.squeeze(action, axis=1)
+            # Only squeeze if action has a singleton batch dimension
+            if action.ndim > 1 and action.shape[0] == 1:
+                action = np.squeeze(action, axis=0)
 
         # Perform action
-        new_observation, reward, done, _ = env.step(action) 
+        new_observation, reward, terminated, truncated, info = env.step(action)
+        done = terminated or truncated
+
         done_bool = False if episode_timesteps + 1 == env._max_episode_steps else done
         episode_reward += reward
+
+        # Extract the actual observation if it's a tuple
+        if isinstance(new_observation, tuple):
+            new_observation = new_observation[0]
+
+        # Ensure observation is a NumPy array
+        new_observation = np.array(new_observation, dtype=np.float32)
+
+        # Add a batch dimension if the observation is 1D
+        if new_observation.ndim == 1:
+            new_observation = new_observation[None, :]  # Add batch dimension
 
         # Store data in replay buffer
         agent.add_experience(observation, action, reward, new_observation, done_bool)
@@ -166,10 +191,6 @@ def learn(env, config, num_episodes = 5000, num_eval_final = 50, batch_size = 10
     return stats
 
 
-    # if agent.config.record:
-    #     agent.record()
-
-
 def eval_from_checkpoint(env, config, run=0):
     """
     Apply procedures of training for a DDPG.
@@ -193,6 +214,8 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     config = get_config(args.env_name)
+    if not os.path.exists(config.checkpoint_dir):
+        os.makedirs(config.checkpoint_dir)
     seed = args.seed
     env = gym.make(config.env_name)
     env.reset(seed=seed)

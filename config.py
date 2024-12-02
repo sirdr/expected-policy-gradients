@@ -21,6 +21,7 @@ class config_cartpole:
         self.record_path  = self.output_path 
         self.eval_freq = 5e3
         self.summary_freq = 1
+        self.checkpoint_dir = "./checkpoints/cartpole/"
 
         # model and training config
         self.num_batches            = 100 # number of batches trained on
@@ -48,13 +49,14 @@ class config_pendulum:
         self.record_path  = self.output_path 
         self.eval_freq = 5e3
         self.summary_freq = 1
+        self.checkpoint_dir = "./checkpoints/pendulum/"
 
         # model and training config
         self.num_batches            = 1000 # number of batches trained on
         self.batch_size             = 64 # number of steps used to compute each policy update
         self.max_ep_len             = 1000 # maximum episode length
         self.max_timesteps          = 5e4
-        self.start_timesteps        = 1e4
+        self.start_timesteps        = 1e4 # number of exploration steps for DDPG 
         self.max_ep_len             = 1000 # maximum episode length
         self.learning_rate          = 1e-4
         self.critic_learning_rate   = 1e-3
@@ -64,7 +66,7 @@ class config_pendulum:
 
 class config_cheetah:
     def __init__(self):
-        self.env_name="HalfCheetah-v1"
+        self.env_name="HalfCheetah-v4"
         self.record = True 
 
         # output config
@@ -75,10 +77,11 @@ class config_cheetah:
         self.record_path  = self.output_path 
         self.eval_freq = 5e3
         self.summary_freq = 1
+        self.checkpoint_dir = "./checkpoints/cheetah/"
 
         # model and training config
         self.max_timesteps          = 1e6
-        self.start_timesteps        = 1e4
+        self.start_timesteps        = 1e4 # number of exploration steps for DDPG 
         self.batch_size             = 64 # number of steps used to compute each policy update
         self.max_ep_len             = 1000 # maximum episode length
         self.learning_rate          = 1e-4

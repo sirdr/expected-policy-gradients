@@ -1,6 +1,7 @@
 __pycache__/
 *.pyc
 results/
+checkpoints/
 *.pickle
 results_copy/
 .DS_Store

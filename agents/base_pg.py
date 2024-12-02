@@ -8,6 +8,7 @@ from Homework 3 of the Winter 2019 version of Stanford's CS 234 taught by Emma B
 
 
 import os
+from datetime import datetime
 import numpy as np
 
 import tensorflow as tf
@@ -23,11 +24,11 @@ class Model(object):
 
     @property
     def vars(self):
-        return tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=self.name)
+        return tf.compat.v1.get_collection(tf.compat.v1.GraphKeys.GLOBAL_VARIABLES, scope=self.name)
 
     @property
     def trainable_vars(self):
-        return tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.name)
+        return tf.compat.v1.get_collection(tf.compat.v1.GraphKeys.TRAINABLE_VARIABLES, scope=self.name)
 
 
 
@@ -103,44 +104,71 @@ class PG(object):
         raise NotImplementedError()
 
     def initialize(self):
-        # create tf session
-        self.sess = tf.Session()
-
+        """
+        Initialize the agent, including TensorFlow 2.x-specific setups like checkpoints and summary writers.
+        """
+        # Initialize TensorBoard summary writer and variables
         self.add_summary()
-        # initiliaze all variables
-        init = tf.global_variables_initializer()
-        self.saver = tf.train.Saver()
-        self.sess.run(init)
+
+        # Initialize checkpoint system
+        self.checkpoint = tf.train.Checkpoint(
+            actor=self.actor,
+            critic=self.critic,
+            target_actor=self.target_actor,
+            target_critic=self.target_critic,
+            actor_optimizer=self.actor_optimizer,
+            critic_optimizer=self.critic_optimizer
+        )
+        self.checkpoint_manager = tf.train.CheckpointManager(
+            self.checkpoint, directory=self.config.checkpoint_dir, max_to_keep=5
+        )
+
+        # Restore from the latest checkpoint if available
+        if self.checkpoint_manager.latest_checkpoint:
+            print(f"Restoring from checkpoint: {self.checkpoint_manager.latest_checkpoint}")
+            self.checkpoint.restore(self.checkpoint_manager.latest_checkpoint)
+        else:
+            print("No checkpoint found. Initializing from scratch.")
+
+        # Ensure variables are initialized
+        for variable in self.actor.variables + self.critic.variables + self.target_actor.variables + self.target_critic.variables:
+            variable.assign(variable)  # Triggers lazy initialization if needed
+
 
     def add_summary(self):
         """
-        Tensorboard stuff.
+        Tensorboard setup for TensorFlow 2.x.
         """
-        # extra placeholders to log stuff from python
-        self.avg_reward_placeholder = tf.placeholder(tf.float32, shape=(), name="avg_reward")
-        self.max_reward_placeholder = tf.placeholder(tf.float32, shape=(), name="max_reward")
-        self.std_reward_placeholder = tf.placeholder(tf.float32, shape=(), name="std_reward")
+        # Create a summary writer for TensorBoard logging
+        self.writer = tf.summary.create_file_writer(self.config.output_path)
 
-        self.eval_reward_placeholder = tf.placeholder(tf.float32, shape=(), name="eval_reward")
+        # Create variables to store reward statistics
+        self.avg_reward = tf.Variable(0.0, dtype=tf.float32, trainable=False, name="avg_reward")
+        self.max_reward = tf.Variable(0.0, dtype=tf.float32, trainable=False, name="max_reward")
+        self.std_reward = tf.Variable(0.0, dtype=tf.float32, trainable=False, name="std_reward")
+        self.eval_reward = tf.Variable(0.0, dtype=tf.float32, trainable=False, name="eval_reward")
+    
+    def log_summary(self, step):
+        """
+        Log scalar metrics to TensorBoard.
+        """
+        with self.writer.as_default():
+            tf.summary.scalar("Avg Reward", self.avg_reward, step=step)
+            tf.summary.scalar("Max Reward", self.max_reward, step=step)
+            tf.summary.scalar("Std Reward", self.std_reward, step=step)
+            tf.summary.scalar("Eval Reward", self.eval_reward, step=step)
+            self.writer.flush()
 
-        # extra summaries from python -> placeholders
-        tf.summary.scalar("Avg Reward", self.avg_reward_placeholder)
-        tf.summary.scalar("Max Reward", self.max_reward_placeholder)
-        tf.summary.scalar("Std Reward", self.std_reward_placeholder)
-        tf.summary.scalar("Eval Reward", self.eval_reward_placeholder)
-
-        # logging
-        self.merged = tf.summary.merge_all()
-        # self.file_writer = tf.summary.FileWriter(self.config.output_path,self.sess.graph)
 
     def init_averages(self):
         """
-        Defines extra attributes for tensorboard.
+        Initialize reward statistics.
         """
-        self.avg_reward = 0.
-        self.max_reward = 0.
-        self.std_reward = 0.
-        self.eval_reward = 0.
+        self.avg_reward.assign(0.0)
+        self.max_reward.assign(0.0)
+        self.std_reward.assign(0.0)
+        self.eval_reward.assign(0.0)
+
 
     def update_averages(self, rewards, scores_eval):
         """
@@ -150,28 +178,25 @@ class PG(object):
             rewards: deque
             scores_eval: list
         """
-        self.avg_reward = np.mean(rewards)
-        self.max_reward = np.max(rewards)
-        self.std_reward = np.sqrt(np.var(rewards) / len(rewards))
+        self.avg_reward.assign(np.mean(rewards))
+        self.max_reward.assign(np.max(rewards))
+        self.std_reward.assign(np.sqrt(np.var(rewards) / len(rewards)))
 
         if len(scores_eval) > 0:
-          self.eval_reward = scores_eval[-1]
+            self.eval_reward.assign(scores_eval[-1])
+
 
     def record_summary(self, t):
         """
-        Add summary to tensorboard
+        Add summary to TensorBoard.
         """
+        with self.writer.as_default():
+            tf.summary.scalar("Avg Reward", self.avg_reward, step=t)
+            tf.summary.scalar("Max Reward", self.max_reward, step=t)
+            tf.summary.scalar("Std Reward", self.std_reward, step=t)
+            tf.summary.scalar("Eval Reward", self.eval_reward, step=t)
+            self.writer.flush()
 
-        fd = {
-          self.avg_reward_placeholder: self.avg_reward,
-          self.max_reward_placeholder: self.max_reward,
-          self.std_reward_placeholder: self.std_reward,
-          self.eval_reward_placeholder: self.eval_reward,
-        }
-        summary = self.sess.run(self.merged, feed_dict=fd)
-        
-        # tensorboard stuff
-        self.file_writer.add_summary(summary, t)
 
     def sample_path(self, env, num_episodes = None):
         """
@@ -224,8 +249,13 @@ class PG(object):
         return paths, episode_rewards
 
     def close(self):
-        self.sess.close()
-        tf.reset_default_graph()
+        """
+        Perform cleanup tasks such as closing TensorBoard writers.
+        """
+        if hasattr(self, 'writer') and self.writer:  # Check if TensorBoard writer exists
+            self.writer.close()
+            print("TensorBoard writer closed.")
+        print("Cleanup complete.")
 
     def train(self):
         """
@@ -246,23 +276,42 @@ class PG(object):
         return avg_reward
 
     def save_model(self):
-        save_path = os.path.join("./",self.config.output_path, self.agent_name, "run-{}".format(self.run))
-        if not os.path.exists(save_path):
-            os.makedirs(save_path)
-        save_path = os.path.join( save_path, "model.ckpt")
-        save_path = self.saver.save(self.sess, save_path)
-        print("Model saved in path: {}".format(save_path))
+        """
+        Save the model using the CheckpointManager.
+        """
+        if self.checkpoint_manager:
+            save_path = self.checkpoint_manager.save()
+            print(f"Model saved to {save_path}")
+        else:
+            print("CheckpointManager is not initialized. Cannot save the model.")
+
 
     def restore(self):
-        load_path = os.path.join("./",self.config.output_path, self.agent_name, "run-{}".format(self.run))
-        load_path = os.path.join(load_path, "model.ckpt")
-        self.saver.restore(self.sess, load_path)
+        """
+        Restore the model using the latest checkpoint.
+        """
+        if self.checkpoint_manager.latest_checkpoint:
+            self.checkpoint.restore(self.checkpoint_manager.latest_checkpoint)
+            print(f"Model restored from {self.checkpoint_manager.latest_checkpoint}")
+        else:
+            print("No checkpoint found to restore from.")
+
 
     def record(self):
-         """
-         Recreate an env and record a video for one episode
-         """
-         env = gym.make(self.config.env_name)
-         record_path = os.path.join(self.config.record_path, self.agent_name, "run-{}".format(self.run))
-         env = gym.wrappers.Monitor(env,record_path, video_callable=lambda x: True, resume=True)
-         self.evaluate_policy(env, 1)
+        """
+        Recreate an env and record a video for one episode
+        """
+        env = gym.make(self.config.env_name, render_mode="rgb_array")
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        record_path = os.path.join(self.config.record_path, self.agent_name, "run-{}".format(self.run), timestamp)
+        if not os.path.exists(record_path):
+            os.makedirs(record_path)
+        env = gym.wrappers.RecordVideo(
+            env,
+            video_folder=record_path,
+            episode_trigger=lambda x: True  # Record every episode
+        )
+        # Evaluate the policy in the wrapped environment
+        self.evaluate_policy(env, eval_episodes=1)
+        # Close the environment after recording
+        env.close()

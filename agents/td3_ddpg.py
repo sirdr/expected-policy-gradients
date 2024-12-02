@@ -28,53 +28,66 @@ parser.add_argument('--env_name', required=True, type=str,
                     choices=['cartpole','pendulum', 'cheetah'])
 
 
-class Actor(Model):
+class Actor(tf.keras.Model):
     def __init__(self, num_actions, name='actor', max_action=1):
-        super().__init__(name=name)
+        super(Actor, self).__init__(name=name)
         self.num_actions = num_actions
         self.max_action = max_action
+        self.layer1 = tf.keras.layers.Dense(400, activation='relu', kernel_initializer=tf.compat.v1.initializers.variance_scaling())
+        self.layer2 = tf.keras.layers.Dense(300, activation='relu', kernel_initializer=tf.compat.v1.initializers.variance_scaling())
+        self.layer3 = tf.keras.layers.Dense(
+            self.num_actions, 
+            activation = 'tanh',
+            kernel_initializer=tf.compat.v1.initializers.random_uniform(-3e-3, 3e-3), 
+            bias_initializer=tf.compat.v1.initializers.random_uniform(-3e-3, 3e-3)
+        )
 
-    def __call__(self,
-                obs,
-                output_activation=None,
-                reuse=False,
-                training=True):
+    def __call__(self, obs, training=False):
+        h = self.layer1(obs)
+        h = self.layer2(h)
+        h = self.layer3(h)
+        return self.max_action * h
+    
+    def get_config(self):
+        return {
+            "num_actions": self.num_actions,
+            "max_action": self.max_action,
+            "name": self.name
+        }
 
-        output = None
-        with tf.variable_scope(self.name, reuse=tf.AUTO_REUSE):
-            #h = tf.layers.batch_normalization(obs, training=training)
-            h = tf.layers.dense(obs, 400, activation=None, kernel_initializer=tf.initializers.variance_scaling())
-            h = tf.nn.relu(h)
-            h = tf.layers.dense(h, 300, activation=None, kernel_initializer=tf.initializers.variance_scaling())
-            h = tf.nn.relu(h)
-            out_weight_init = tf.initializers.random_uniform(-3e-3, 3e-3)
-            h = tf.layers.dense(h, self.num_actions, activation=None, kernel_initializer=out_weight_init, bias_initializer=out_weight_init)
-            output = self.max_action*tf.nn.tanh(h)
-        return output
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
 
 
-class Critic(Model):
+class Critic(tf.keras.Model):
     def __init__(self, name='critic', batch_norm=False):
-        super().__init__(name=name)
+        super(Critic, self).__init__(name=name)
         self.batch_norm = batch_norm
+        self.layer1 = tf.keras.layers.Dense(400, activation='relu', kernel_initializer=tf.compat.v1.initializers.variance_scaling())
+        self.layer2 = tf.keras.layers.Dense(300, activation='relu', kernel_initializer=tf.compat.v1.initializers.variance_scaling())
+        self.layer3 = tf.keras.layers.Dense(
+            1, 
+            activation=None,
+            kernel_initializer=tf.compat.v1.initializers.random_uniform(-3e-3, 3e-3), 
+            bias_initializer=tf.compat.v1.initializers.random_uniform(-3e-3, 3e-3)
+        )
 
-    def __call__(self, 
-                obs, 
-                actions,
-                output_activation=None,
-                reuse=False,
-                training=True):
+    def __call__(self, obs, actions, training=False):
+        # Concatenate observations and actions along the last axis
+        obs_act = tf.concat([obs, tf.cast(actions, tf.float32)], axis=-1)
+        h = self.layer1(obs_act)
+        h = self.layer2(h)
+        return self.layer3(h)
+    
+    def get_config(self):
+        return {
+            "name": self.name
+        }
 
-        output = None
-        with tf.variable_scope(self.name, reuse=tf.AUTO_REUSE):
-            #h = tf.layers.batch_normalization(obs, training=training)
-            obs_act = tf.concat([obs, tf.cast(actions, tf.float32)], 1) 
-            h = tf.layers.dense(obs_act, 400, activation=None, kernel_initializer=tf.initializers.variance_scaling())
-            h = tf.nn.relu(h)
-            h = tf.layers.dense(h, 300, activation=tf.nn.relu, kernel_initializer=tf.initializers.variance_scaling())
-            out_weight_init = tf.initializers.random_uniform(-3e-3, 3e-3)
-            output = tf.layers.dense(h, 1, activation=output_activation, kernel_initializer=out_weight_init, bias_initializer=out_weight_init)
-        return output
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
 
 
 class TD3DDPG(PG):
@@ -83,63 +96,61 @@ class TD3DDPG(PG):
     """
     def __init__(self, env, config, experience, actor=None, critic=None, action_noise = None, logger=None, run=0):
         super().__init__(env, config, run=run, logger=logger)
-        self.agent_name = "td3ddpg"
-        if actor is None:
-            actor = Actor(self.action_dim, max_action=self.action_high)
-        self.actor = actor
-
-        if critic is None:
-            critic = Critic()
-        self.critic = critic
-
+        self.agent_name = "td3ddpg" # for model saving and restoring
         self.experience = experience
+        self.action_noise = action_noise
+        self.tau = 0.005 # overrides config
+        self.actor_lr = 0.001 # overrides config
 
-        target_actor = copy(actor)
+        # Initialize actor and critic
+        self.actor = actor or Actor(self.action_dim, max_action=self.action_high)
+        self.critic = critic or Critic()
+
+        # Initialize target actor and critic
+        target_actor = copy(self.actor)
         target_actor.name = 'target_actor'
         self.target_actor = target_actor
-
-        target_critic = copy(critic)
+        target_critic = copy(self.critic)
         target_critic.name = 'target_critic'
         self.target_critic = target_critic
 
-        # build model
-        self.action_noise = action_noise
-        self.tau = 0.005
-        self.actor_lr = 0.001
-        self.build()
+        # Initialize optimizers
+        self.actor_optimizer = tf.keras.optimizers.Adam(learning_rate=self.actor_lr)
+        self.critic_optimizer = tf.keras.optimizers.Adam(learning_rate=self.critic_lr)
+
 
     def add_placeholders_op(self):
-        self.observation_placeholder = tf.placeholder(tf.float32, shape=(None, self.observation_dim))
-        self.next_observation_placeholder = tf.placeholder(tf.float32, shape=(None, self.observation_dim))
+        self.observation_placeholder = tf.compat.v1.placeholder(tf.float32, shape=(None, self.observation_dim))
+        self.next_observation_placeholder = tf.compat.v1.placeholder(tf.float32, shape=(None, self.observation_dim))
         if self.discrete:
-            self.action_placeholder = tf.placeholder(tf.int32, shape=(None, 1))
+            self.action_placeholder = tf.compat.v1.placeholder(tf.int32, shape=(None, 1))
         else:
-            self.action_placeholder = tf.placeholder(tf.float32, shape=(None, self.action_dim))
+            self.action_placeholder = tf.compat.v1.placeholder(tf.float32, shape=(None, self.action_dim))
 
-        self.reward_placeholder = tf.placeholder(tf.float32, shape=(None, 1))
-        self.done_placeholder = tf.placeholder(tf.bool, shape=(None, 1))
+        self.reward_placeholder = tf.compat.v1.placeholder(tf.float32, shape=(None, 1))
+        self.done_placeholder = tf.compat.v1.placeholder(tf.bool, shape=(None, 1))
 
-        self.training_placeholder = tf.placeholder(tf.bool)
+        self.training_placeholder = tf.compat.v1.placeholder(tf.bool)
 
     def add_actor_loss_op(self):
         self.loss_integrand = tf.reduce_mean(self.critic_output_given_actor_output)
         self.loss = -1*self.loss_integrand
 
     def add_actor_optimizer_op(self):
-        opt = tf.train.AdamOptimizer(learning_rate=self.actor_lr)
+        opt = tf.compat.v1.train.AdamOptimizer(learning_rate=self.actor_lr)
         v_list = self.actor.vars
         #update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS) # Needed for Batch Normalization to work properly
         self.actor_grads_and_vars = opt.compute_gradients(self.loss, var_list=v_list)
         grads = [g for g,v in self.actor_grads_and_vars]
-        self.grad_norm = tf.global_norm(grads)
+        self.grad_norm = tf.linalg.global_norm(grads)
         self.train_op = opt.apply_gradients(self.actor_grads_and_vars)
 
     def add_critic_loss_op(self, scope="critic"):
         self.y = self.reward_placeholder + self.config.gamma*tf.multiply(tf.cast(tf.logical_not(self.done_placeholder), tf.float32), self.target_critic_output)
-        self.critic_loss = tf.losses.mean_squared_error(self.y, self.critic_output,  scope=self.critic.name)
+        self.critic_loss = tf.compat.v1.losses.mean_squared_error(self.y, self.critic_output,  scope=self.critic.name)
 
     def add_critic_optimizer_op(self):
-        opt = tf.train.AdamOptimizer(learning_rate=self.critic_lr)
+        opt = tf.compat.v1.train.AdamOptimizer(learning_rate=self.critic_lr)
         v_list = self.critic.vars
         #update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
         self.actor_grads_and_vars = opt.compute_gradients(self.critic_loss, var_list=v_list)
@@ -148,20 +159,20 @@ class TD3DDPG(PG):
     def add_soft_update_target_op(self):
         critic_v_list = self.critic.vars
         target_critic_v_list = self.target_critic.vars
-        self.update_target_critic_op = tf.group(*[tf.assign(target_v, self.tau*v + (1 - self.tau)*target_v) for v, target_v in zip(critic_v_list, target_critic_v_list)])
+        self.update_target_critic_op = tf.group(*[tf.compat.v1.assign(target_v, self.tau*v + (1 - self.tau)*target_v) for v, target_v in zip(critic_v_list, target_critic_v_list)])
 
         actor_v_list = self.actor.vars
         target_actor_v_list = self.target_actor.vars
-        self.update_target_actor_op = tf.group(*[tf.assign(target_v, self.tau*v + (1 - self.tau)*target_v) for v, target_v in zip(actor_v_list, target_actor_v_list)])
+        self.update_target_actor_op = tf.group(*[tf.compat.v1.assign(target_v, self.tau*v + (1 - self.tau)*target_v) for v, target_v in zip(actor_v_list, target_actor_v_list)])
 
     def add_init_update_target_op(self):
         critic_v_list = self.critic.vars
         target_critic_v_list = self.target_critic.vars
-        self.init_target_critic_op = tf.group(*[tf.assign(target_v, v) for v, target_v in zip(critic_v_list, target_critic_v_list)])
+        self.init_target_critic_op = tf.group(*[tf.compat.v1.assign(target_v, v) for v, target_v in zip(critic_v_list, target_critic_v_list)])
 
         actor_v_list = self.actor.vars
         target_actor_v_list = self.target_actor.vars
-        self.init_target_actor_op = tf.group(*[tf.assign(target_v, v) for v, target_v in zip(actor_v_list, target_actor_v_list)])
+        self.init_target_actor_op = tf.group(*[tf.compat.v1.assign(target_v, v) for v, target_v in zip(actor_v_list, target_actor_v_list)])
 
     def build(self):
         # add placeholders
@@ -186,32 +197,76 @@ class TD3DDPG(PG):
         self.add_init_update_target_op()
 
     def initialize(self):
-        # create tf session
-        self.sess = tf.Session()
+        """
+        Initialize the agent including variables and checkpoint setup.
+        """
+        # Add summaries (TensorBoard writer setup)
         self.add_summary()
-        # initiliaze all variables
-        init = tf.global_variables_initializer()
-        self.saver = tf.train.Saver()
-        self.sess.run(init)
-        self.sess.run([self.init_target_actor_op, self.init_target_critic_op])
 
-    def update_critic(self, actions, observations, next_observations, rewards, done):
-        self.sess.run(self.train_critic_op, feed_dict={
-                        self.observation_placeholder : observations,
-                        self.next_observation_placeholder : next_observations,
-                        self.action_placeholder : actions,
-                        self.reward_placeholder : rewards,
-                        self.done_placeholder : done})
+        # Initialize checkpoint system
+        self.checkpoint = tf.train.Checkpoint(
+            actor=self.actor,
+            critic=self.critic,
+            target_actor=self.target_actor,
+            target_critic=self.target_critic,
+            actor_optimizer=self.actor_optimizer,
+            critic_optimizer=self.critic_optimizer
+        )
+        self.checkpoint_manager = tf.train.CheckpointManager(
+            self.checkpoint, directory=self.config.checkpoint_dir, max_to_keep=5
+        )
+
+        # Restore from the latest checkpoint if available
+        if self.checkpoint_manager.latest_checkpoint:
+            print(f"Restoring from checkpoint: {self.checkpoint_manager.latest_checkpoint}")
+            self.checkpoint.restore(self.checkpoint_manager.latest_checkpoint)
+        else:
+            print("No checkpoint found. Initializing target networks.")
+
+        # Initialize target networks
+        for base_var, target_var in zip(self.actor.variables, self.target_actor.variables):
+            target_var.assign(base_var)
+
+        for base_var, target_var in zip(self.critic.variables, self.target_critic.variables):
+            target_var.assign(base_var)
+
+        print("Initialization complete.")
+
+
+    @tf.function
+    def update_critic(self, observations, actions, next_observations, rewards, done):
+        # Remove extra dimensions if present
+        if len(next_observations.shape) == 3:
+            next_observations = tf.squeeze(next_observations, axis=1)
+        if len(actions.shape) == 3:
+            actions = tf.squeeze(actions, axis=1)
+            # Cast rewards to float32
+        rewards = tf.cast(rewards, tf.float32)
+        next_actions = self.target_actor(next_observations, training=False)
+        target_critic_output = self.target_critic(next_observations, next_actions, training=False)
+        y = rewards + self.config.gamma*tf.multiply(tf.cast(tf.logical_not(done), tf.float32), target_critic_output)
+
+        with tf.GradientTape() as tape:
+            critic_output = self.critic(observations, actions, training=True)
+            critic_loss = tf.reduce_mean(tf.square(y - critic_output))
+        grads = tape.gradient(critic_loss, self.critic.trainable_variables)
+        self.critic_optimizer.apply_gradients(zip(grads, self.critic.trainable_variables))
+    
+    @tf.function
+    def update_target(self, base, target, tau):
+        for base_vars, target_vars in zip(base.variables, target.variables):
+            base_vars.assign(tau * base_vars + (1 - tau) * target_vars)
 
     def reset(self):
         self.action_noise.reset()
 
     def act(self, observation, apply_noise=True, compute_q=True):
-        feed_dict = {self.observation_placeholder: observation[None]}
+
+        action = self.actor(observation)
+
         if compute_q:
-            action, q = self.sess.run([self.actor_output, self.critic_output_given_actor_output], feed_dict=feed_dict)
+            q = self.critic(observation, action, training=False)
         else:
-            action = self.sess.run(self.actor_output, feed_dict=feed_dict)
             q = None
 
         if self.action_noise is not None and apply_noise:
@@ -219,6 +274,10 @@ class TD3DDPG(PG):
             assert noise.shape == action[0].shape
             action += noise
         action = np.clip(action, self.action_low, self.action_high)
+
+        # Remove batch dimension for single action environments
+        action = np.squeeze(action, axis=0)
+
         return action, q
 
     def add_experience(self, observation, action, reward, new_observation, done):
@@ -237,8 +296,23 @@ class TD3DDPG(PG):
             done = False
             total_reward = 0.0
             while not done:
+
+                # Extract the actual observation if it's a tuple
+                if isinstance(obs, tuple):
+                    obs = obs[0]
+
+                # Ensure observation is a NumPy array
+                obs = np.array(obs, dtype=np.float32)
+
+                # Add a batch dimension if the observation is 1D
+                if obs.ndim == 1:
+                    obs = obs[None, :]  # Add batch dimension
+
                 action, _ = self.act(np.array(obs), apply_noise=False, compute_q=False)
-                obs, reward, done, _ = env.step(action)
+
+                obs, reward, terminated, truncated, info = env.step(action)
+                done = terminated or truncated
+
                 total_reward += reward
                 episode_timesteps += 1
                 total_timesteps += 1
@@ -255,22 +329,33 @@ class TD3DDPG(PG):
         print("---------------------------------------")
         return rewards, eval_cummulative_timesteps, eval_episode_timesteps
 
-    def train(self, iterations, stats={}):
+    def train(self, iterations, stats=None):
+        if stats is None:
+            stats = {"grad_norms": []}
 
-        for it in range(iterations):
-
+        for _ in range(iterations):
+            
             # Sample replay buffer 
             observations, next_observations, actions, rewards, dones = self.experience.sample(self.config.batch_size)
 
+            # Update critic
             self.update_critic(actions, observations, next_observations, rewards, dones)
 
-            _, grad_norm = self.sess.run([self.train_op, self.grad_norm], feed_dict={
-                        self.observation_placeholder : observations,
-                        self.action_placeholder : actions})
+            # Update actor
+            with tf.GradientTape() as tape:
+                actions = self.actor(observations, training=True)
+                critic_output = self.critic(observations, actions, training=False)
+                actor_loss = -tf.reduce_mean(critic_output)
 
-            stats["grad_norms"].append(grad_norm)
+            actor_grads = tape.gradient(actor_loss, self.actor.trainable_variables)
+            actor_grad_norm = tf.linalg.global_norm(actor_grads)
+            self.actor_optimizer.apply_gradients(zip(actor_grads, self.actor.trainable_variables))
 
-            self.sess.run([self.update_target_critic_op, self.update_target_actor_op], feed_dict={})
+            stats["grad_norms"].append(actor_grad_norm)
+
+            # Update target networks
+            self.update_target(self.actor, self.target_actor, self.tau)
+            self.update_target(self.critic, self.target_critic, self.tau)
 
         return stats
 
@@ -281,6 +366,6 @@ if __name__ == '__main__':
     config = get_config(args.env_name)
     env = gym.make(config.env_name)
     # train model
-    model = EPG(env, config)
+    model = TD3DDPG(env, config)
 
     model.run()

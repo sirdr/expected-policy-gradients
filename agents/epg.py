@@ -66,13 +66,13 @@ class Actor(Model):
                 training=True):
 
         output = None
-        with tf.variable_scope(self.name, reuse=tf.AUTO_REUSE):
+        with tf.compat.v1.variable_scope(self.name, reuse=tf.compat.v1.AUTO_REUSE):
             #h = tf.layers.batch_normalization(obs, training=training)
-            h = tf.layers.dense(obs, 400, activation=None, kernel_initializer=tf.initializers.variance_scaling())
+            h = tf.layers.dense(obs, 400, activation=None, kernel_initializer=tf.compat.v1.initializers.variance_scaling())
             h = tf.nn.relu(h)
-            h = tf.layers.dense(h, 300, activation=None, kernel_initializer=tf.initializers.variance_scaling())
+            h = tf.layers.dense(h, 300, activation=None, kernel_initializer=tf.compat.v1.initializers.variance_scaling())
             h = tf.nn.relu(h)
-            out_weight_init = tf.initializers.random_uniform(-3e-3, 3e-3)
+            out_weight_init = tf.compat.v1.initializers.random_uniform(-3e-3, 3e-3)
 
             if not self.discrete:
                 #output_logstd = tf.layers.dense(obs, self.num_actions, activation=None, kernel_initializer=out_weight_init, bias_initializer=out_weight_init)
@@ -106,13 +106,13 @@ class Critic(Model):
                 training=True):
 
         output = None
-        with tf.variable_scope(self.name, reuse=tf.AUTO_REUSE):
+        with tf.compat.v1.variable_scope(self.name, reuse=tf.compat.v1.AUTO_REUSE):
             #h = tf.layers.batch_normalization(obs, training=training)
             obs_act = tf.concat([obs, tf.cast(actions, tf.float32)], 1) 
-            h = tf.layers.dense(obs_act, 400, activation=None, kernel_initializer=tf.initializers.variance_scaling())
+            h = tf.layers.dense(obs_act, 400, activation=None, kernel_initializer=tf.compat.v1.initializers.variance_scaling())
             h = tf.nn.relu(h)
-            h = tf.layers.dense(h, 300, activation=tf.nn.relu, kernel_initializer=tf.initializers.variance_scaling())
-            out_weight_init = tf.initializers.random_uniform(-3e-3, 3e-3)
+            h = tf.layers.dense(h, 300, activation=tf.nn.relu, kernel_initializer=tf.compat.v1.initializers.variance_scaling())
+            out_weight_init = tf.compat.v1.initializers.random_uniform(-3e-3, 3e-3)
             output = tf.layers.dense(h, 1, activation=output_activation, kernel_initializer=out_weight_init, bias_initializer=out_weight_init)
         return output
 
@@ -159,38 +159,38 @@ class EPG(PG):
             self.action_placeholder, type: depends on the self.discrete
             self.advantage_placeholder, type: tf.float32
         """
-        self.observation_placeholder = tf.placeholder(tf.float32, shape=(None, self.observation_dim))
-        self.next_observation_placeholder = tf.placeholder(tf.float32, shape=(None, self.observation_dim))
+        self.observation_placeholder = tf.compat.v1.placeholder(tf.float32, shape=(None, self.observation_dim))
+        self.next_observation_placeholder = tf.compat.v1.placeholder(tf.float32, shape=(None, self.observation_dim))
         if self.discrete:
-            self.action_placeholder = tf.placeholder(tf.int32, shape=(None, 1))
+            self.action_placeholder = tf.compat.v1.placeholder(tf.int32, shape=(None, 1))
         else:
-            self.action_placeholder = tf.placeholder(tf.float32, shape=(None, self.action_dim))
+            self.action_placeholder = tf.compat.v1.placeholder(tf.float32, shape=(None, self.action_dim))
 
-        self.weights_placeholder = tf.placeholder(tf.float32, shape=(None, 1))
-        self.reward_placeholder = tf.placeholder(tf.float32, shape=(None, 1))
-        self.done_placeholder = tf.placeholder(tf.bool, shape=(None, 1))
+        self.weights_placeholder = tf.compat.v1.placeholder(tf.float32, shape=(None, 1))
+        self.reward_placeholder = tf.compat.v1.placeholder(tf.float32, shape=(None, 1))
+        self.done_placeholder = tf.compat.v1.placeholder(tf.bool, shape=(None, 1))
 
-        self.training_placeholder = tf.placeholder(tf.bool)
-        self.num_states_placeholder = tf.placeholder(tf.float32, shape=())
+        self.training_placeholder = tf.compat.v1.placeholder(tf.bool)
+        self.num_states_placeholder = tf.compat.v1.placeholder(tf.float32, shape=())
 
     def get_policy_from_actor_op(self, actor, obs):
 
         if self.discrete:
             action_logits = actor(obs)#training=self.training_placeholder)
-            sampled_action = tf.multinomial(action_logits, 1)
+            sampled_action = tf.random.categorical(action_logits, 1)
             return action_logits, sampled_action, None
         else:
             action_output = actor(obs) #training=self.training_placeholder)
             #log_std = action_output[1]
             if not self.learn_std:
-                with tf.variable_scope(actor.name, reuse=tf.AUTO_REUSE):
-                    log_std = tf.get_variable("log_std", shape=(self.action_dim))
+                with tf.compat.v1.variable_scope(actor.name, reuse=tf.compat.v1.AUTO_REUSE):
+                    log_std = tf.compat.v1.get_variable("log_std", shape=(self.action_dim))
                 action_means = action_output
             else:
                 action_means = action_output[0]
                 log_std = action_output[1]
             shape = tf.shape(action_means)
-            epsilon = tf.random_normal(shape)
+            epsilon = tf.random.normal(shape)
             sampled_action = action_means + tf.multiply(epsilon, tf.exp(log_std))
             # TODO: clip here ? or clip only in act(), revert back to log_std ?
             return action_means, sampled_action, log_std
@@ -226,21 +226,21 @@ class EPG(PG):
         self.loss = -1*self.loss_integral
 
     def add_actor_optimizer_op(self):
-        opt = tf.train.AdamOptimizer(learning_rate=self.actor_lr)
+        opt = tf.compat.v1.train.AdamOptimizer(learning_rate=self.actor_lr)
         v_list = self.actor.vars
         #update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS) # Needed for Batch Normalization to work properly
         self.actor_grads_and_vars = opt.compute_gradients(self.loss, var_list=v_list)
         grads = [g for g,v in self.actor_grads_and_vars]
-        self.grad_norm = tf.global_norm(grads)
+        self.grad_norm = tf.linalg.global_norm(grads)
         self.train_op = opt.apply_gradients(self.actor_grads_and_vars)
         #self.train_op = tf.group([train_op, update_ops])
 
     def add_critic_loss_op(self, scope="critic"):
         self.y = self.reward_placeholder + self.config.gamma*tf.multiply(tf.cast(tf.logical_not(self.done_placeholder), tf.float32), self.target_critic_output)
-        self.critic_loss = tf.losses.mean_squared_error(self.y, self.critic_output,  scope=self.critic.name)
+        self.critic_loss = tf.compat.v1.losses.mean_squared_error(self.y, self.critic_output,  scope=self.critic.name)
 
     def add_critic_optimizer_op(self):
-        opt = tf.train.AdamOptimizer(learning_rate=self.critic_lr)
+        opt = tf.compat.v1.train.AdamOptimizer(learning_rate=self.critic_lr)
         v_list = self.critic.vars
         #update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
         self.actor_grads_and_vars = opt.compute_gradients(self.critic_loss, var_list=v_list)
@@ -250,20 +250,20 @@ class EPG(PG):
     def add_soft_update_target_op(self):
         critic_v_list = self.critic.vars
         target_critic_v_list = self.target_critic.vars
-        self.update_target_critic_op = tf.group(*[tf.assign(target_v, self.tau*v + (1 - self.tau)*target_v) for v, target_v in zip(critic_v_list, target_critic_v_list)])
+        self.update_target_critic_op = tf.group(*[tf.compat.v1.assign(target_v, self.tau*v + (1 - self.tau)*target_v) for v, target_v in zip(critic_v_list, target_critic_v_list)])
 
         actor_v_list = self.actor.vars
         target_actor_v_list = self.target_actor.vars
-        self.update_target_actor_op = tf.group(*[tf.assign(target_v, self.tau*v + (1 - self.tau)*target_v) for v, target_v in zip(actor_v_list, target_actor_v_list)])
+        self.update_target_actor_op = tf.group(*[tf.compat.v1.assign(target_v, self.tau*v + (1 - self.tau)*target_v) for v, target_v in zip(actor_v_list, target_actor_v_list)])
 
     def add_init_update_target_op(self):
         critic_v_list = self.critic.vars
         target_critic_v_list = self.target_critic.vars
-        self.init_target_critic_op = tf.group(*[tf.assign(target_v, v) for v, target_v in zip(critic_v_list, target_critic_v_list)])
+        self.init_target_critic_op = tf.group(*[tf.compat.v1.assign(target_v, v) for v, target_v in zip(critic_v_list, target_critic_v_list)])
 
         actor_v_list = self.actor.vars
         target_actor_v_list = self.target_actor.vars
-        self.init_target_actor_op = tf.group(*[tf.assign(target_v, v) for v, target_v in zip(actor_v_list, target_actor_v_list)])
+        self.init_target_actor_op = tf.group(*[tf.compat.v1.assign(target_v, v) for v, target_v in zip(actor_v_list, target_actor_v_list)])
 
     def build(self):
 
@@ -300,12 +300,12 @@ class EPG(PG):
 
     def initialize(self):
         # create tf session
-        self.sess = tf.Session()
+        self.sess = tf.compat.v1.Session()
 
         self.add_summary()
         # initiliaze all variables
-        init = tf.global_variables_initializer()
-        self.saver = tf.train.Saver()
+        init = tf.compat.v1.global_variables_initializer()
+        self.saver = tf.compat.v1.train.Saver()
         self.sess.run(init)
         self.sess.run([self.init_target_actor_op, self.init_target_critic_op])
 
