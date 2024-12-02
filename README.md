@@ -4,6 +4,8 @@ Final Project for Stanford's CS 234 (See Poster Below)
 
 ![image](./cs234_poster.jpg)
 
+***Notes & Credit:*** *Some files and functions have been adapted or borrowed from Homework 3 of the Winter 2019 version of Stanford's CS 234 taught by Emma Brunskill*
+
 To run DDPG on the `InvertedPendulum-v4` openAI gym environment for `n` episodes using the model outlined in [this paper](https://arxiv.org/pdf/1802.09477.pdf) adn record a video of the resulting policy simply use:
 
 ```
