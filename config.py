@@ -37,7 +37,7 @@ class config_cartpole:
 
 class config_pendulum:
     def __init__(self):
-        self.env_name="InvertedPendulum-v1"
+        self.env_name="InvertedPendulum-v4"
         self.record = True 
 
         # output config

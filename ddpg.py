@@ -193,11 +193,10 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     config = get_config(args.env_name)
-    env = gym.make(config.env_name)
     seed = args.seed
-
-    env.seed(seed)
-    tf.set_random_seed(seed)
+    env = gym.make(config.env_name)
+    env.reset(seed=seed)
+    tf.random.set_seed(seed)
     np.random.seed(seed)
 
     if args.eval_from_checkpoint:
