@@ -101,7 +101,8 @@ class TD3DDPG(PG):
     def __init__(
         self, 
         env, 
-        config, 
+        config,
+        run_dir, 
         experience, 
         actor=None, 
         critic=None, 
@@ -109,7 +110,7 @@ class TD3DDPG(PG):
         logger=None, 
         run=0
         ) -> None:
-        super().__init__(env, config, run=run, logger=logger)
+        super().__init__(env, config, run_dir, run=run, logger=logger)
         self.agent_name = "td3ddpg" # for model saving and restoring
         self.experience = experience
         self.action_noise = action_noise

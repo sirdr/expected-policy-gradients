@@ -14,8 +14,9 @@ import numpy as np
 import tensorflow as tf
 
 import gym
-import os
 from utils.general import get_logger
+
+import json
 
 
 class Model(object):
@@ -36,7 +37,7 @@ class PG(object):
     """
     Abstract Class for implementing a Policy Gradient Based Algorithm
     """
-    def __init__(self, env, config, run=0, logger=None):
+    def __init__(self, env, config, run_dir, run=0, logger=None):
         """
         Initialize Policy Gradient Class
 
@@ -47,14 +48,16 @@ class PG(object):
 
         """
         # directory for training outputs
-        if not os.path.exists(config.output_path):
-            os.makedirs(config.output_path)
+        if not os.path.exists(run_dir):
+            os.makedirs(run_dir)
 
         # store hyperparameters
+        self.run_dir = run_dir
         self.config = config
         self.logger = logger
+        log_path = os.path.join(self.run_dir, "logs", "logs.txt")
         if logger is None:
-            self.logger = get_logger(config.log_path)
+            self.logger = get_logger(log_path)
         self.env = env
 
         # discrete vs continuous action space
@@ -119,8 +122,9 @@ class PG(object):
             actor_optimizer=self.actor_optimizer,
             critic_optimizer=self.critic_optimizer
         )
+        checkpoint_dir = os.path.join(self.run_dir, "checkpoints")
         self.checkpoint_manager = tf.train.CheckpointManager(
-            self.checkpoint, directory=self.config.checkpoint_dir, max_to_keep=5
+            self.checkpoint, directory=checkpoint_dir, max_to_keep=5
         )
 
         # Restore from the latest checkpoint if available
@@ -140,7 +144,8 @@ class PG(object):
         Tensorboard setup for TensorFlow 2.x.
         """
         # Create a summary writer for TensorBoard logging
-        self.writer = tf.summary.create_file_writer(self.config.output_path)
+        log_dir = os.path.join(self.run_dir, "logs")
+        self.writer = tf.summary.create_file_writer(log_dir)
 
         # Create variables to store reward statistics
         self.avg_reward = tf.Variable(0.0, dtype=tf.float32, trainable=False, name="avg_reward")
@@ -303,9 +308,8 @@ class PG(object):
         """
         env = gym.make(self.config.env_name, render_mode="rgb_array")
         timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        record_path = os.path.join(self.config.record_path, self.agent_name, "run-{}".format(self.run), timestamp)
-        if not os.path.exists(record_path):
-            os.makedirs(record_path)
+        record_path = os.path.join(self.run_dir, "videos")
+        os.makedirs(record_path, exist_ok=True)
         env = gym.wrappers.RecordVideo(
             env,
             video_folder=record_path,

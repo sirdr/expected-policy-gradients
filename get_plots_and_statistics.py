@@ -8,13 +8,11 @@ import matplotlib.pyplot as plt
 
 import gym
 import os
-from config import get_config
 
 import pickle
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--env_name', required=True, type=str,
-                    choices=['cartpole','pendulum', 'cheetah'])
+parser.add_argument('--base_dir', required=True, help="Base directory for storing run outputs")
 
 agents = ["epg-riemann", "epg-trapz", "td3ddpg"]
 
@@ -109,13 +107,13 @@ def get_trajectories(results):
 def lineplotCI(ax, x_data, y_data, low_CI, upper_CI, label):
     # Plot the data, set the linewidth, color and transparency of the
     # line, provide a label for the legend
-    ax.plot(x_data, y_data, lw = 1, color = '#539caf', alpha = 1, label = "CI")
+    ax.plot(x_data, y_data, lw = 1, color = '#539caf', alpha = 1, label = label)
     # Shade the confidence interval
-    ax.fill_between(sorted_x, low_CI, upper_CI, color = '#539caf', alpha = 0.4)
+    ax.fill_between(x_data, low_CI, upper_CI, color = '#539caf', alpha = 0.4)
     # Label the axes and provide a title
 
 
-def get_results(results, env, config):
+def get_results(results, save_dir=None):
 
     reward_trajectories = get_trajectories(results)
     reward_trajectories_stats = get_trajectory_statistics(reward_trajectories)
@@ -129,6 +127,17 @@ def get_results(results, env, config):
 
         print("Mean Evaluation Reward : {} +/- {} |  [{} , {}] 90% CI".format(stats["mean"], stats["std_mean"], stats["ci_lower_mean"], stats["ci_upper_mean"]))
         print("Std Evaluation Reward : {} +/- {}  |  [{} , {}] 90% CI".format(stats["mean_std"], stats["std_mean_std"], stats["ci_lower_std"], stats["ci_upper_std"]))
+    
+        # Save evaluation statistics to a text file
+    if save_dir:
+        os.makedirs(save_dir, exist_ok=True)
+        stats_file = os.path.join(save_dir, "evaluation_statistics.txt")
+        with open(stats_file, "w") as f:
+            for agent, stats in eval_statistics.items():
+                f.write(f"Evaluation Statistics for {agent} over 50 episodes after training:\n")
+                f.write(f"Mean Evaluation Reward : {stats['mean']} +/- {stats['std_mean']} |  [{stats['ci_lower_mean']}, {stats['ci_upper_mean']}] 90% CI\n")
+                f.write(f"Std Evaluation Reward : {stats['mean_std']} +/- {stats['std_mean_std']} |  [{stats['ci_lower_std']}, {stats['ci_upper_std']}] 90% CI\n\n")
+        print(f"Saved evaluation statistics to {stats_file}")
 
     _, ax = plt.subplots()
 
@@ -148,16 +157,14 @@ def get_results(results, env, config):
     # Display legend
     ax.legend(loc = 'best')
 
+    # Save the plot
+    if save_dir:
+        plot_file = os.path.join(save_dir, "reward_trajectories.png")
+        plt.savefig(plot_file)
+        print(f"Saved plot to {plot_file}")
 
-# Call the function to create plot
-lineplotCI(x_data = daily_data['temp']
-           , y_data = fitted_values
-           , sorted_x = CI_df['x_data']
-           , low_CI = CI_df['low_CI']
-           , upper_CI = CI_df['upper_CI']
-           , x_label = 'Normalized temperature (C)'
-           , y_label = 'Check outs'
-           , title = 'Line of Best Fit for Number of Check Outs vs Temperature')
+    # Show the plot (optional, can be removed if not needed)
+    plt.show()
 
 
 
@@ -169,27 +176,33 @@ lineplotCI(x_data = daily_data['temp']
 if __name__ == '__main__':
 
     args = parser.parse_args()
-    config = get_config(args.env_name)
-    env = gym.make(config.env_name)
+    base_dir = args.base_dir
 
-    path = os.path.join("./", config.output_path)
+    agent_results = {}
 
-    dirs = os.listdir(path)
+    for j, agent in enumerate(os.listdir(base_dir)):
+        agent_path = os.path.join(base_dir, agent)
+        # Skip non-directory entries
+        if not os.path.isdir(agent_path):
+            continue
+        results = {}
+        for i, run_dir in enumerate(os.listdir(agent_path)):
+            run_path = os.path.join(agent_path, run_dir)
+            # Check for results.pickle in the run's results folder
+            results_path = os.path.join(run_path, "results", "results.pickle")
+            if os.path.exists(results_path):
+                try:
+                    with open(results_path, "rb") as f:
+                        stats = pickle.load(f)
+                        results[i] = stats
+                except Exception as e:
+                    print(f"Error loading pickle file from {results_path}: {e}")
+            else:
+                print(f"No results.pickle file found in {run_path}/results/")
+        agent_results[agent] = results
 
-    results = {}
-
-    for d in dirs:
-        if d in agents:
-            stats = None
-            temp_path = os.path.join(path, d, "results.pickle")
-            try:
-                pickle_in = open(temp_path,"rb")
-                stats = pickle.load(pickle_in)
-            except:
-                print("Did not find pickle file '{}' in directory '{}'".format("results.pickle",d))
-            results[d] = stats
     print("Found the following result dictionaries:")
-    for key, val in results.items():
+    for key, val in agent_results.items():
         print("agent: {} | dict: {}".format(key, [k for k in val.keys()]))
 
-    get_results(results, env, config)
+    get_results(agent_results, save_dir=base_dir)

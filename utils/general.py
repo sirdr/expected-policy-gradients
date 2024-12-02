@@ -1,19 +1,43 @@
-"""
-Notes and Credits: 
-
-This file and the functions within are directly taken from Homework 3
-of the Winter 2019 version of Stanford's CS 234 taught by Emma Brunskill
-"""
-
-
+import os
 import time
 import sys
 import logging
 import numpy as np
 from collections import deque
+import json
+
+from datetime import datetime
+
 import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
+
+
+def create_run_directory(base_output_path):
+    # Create a unique run directory using a timestamp
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    run_dir = os.path.join(base_output_path, f"run-{timestamp}")
+    os.makedirs(run_dir, exist_ok=True)
+
+    # Subdirectories for organization
+    subdirs = ['checkpoints', 'logs', 'results', 'videos']
+    for subdir in subdirs:
+        os.makedirs(os.path.join(run_dir, subdir), exist_ok=True)
+    return run_dir
+
+def save_config(config, run_dir):
+    config_path = os.path.join(run_dir, "config.json")
+    with open(config_path, "w") as f:
+        json.dump(config, f, indent=4)
+    print(f"Configuration saved to {config_path}")
+
+
+"""
+Notes and Credits: 
+
+Functions below are directly taken from Homework 3
+of the Winter 2019 version of Stanford's CS 234 taught by Emma Brunskill
+"""
 
 
 def export_plot(ys, ylabel, title, filename):

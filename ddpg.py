@@ -14,6 +14,8 @@ import os
 import argparse
 import numpy as np
 
+from datetime import datetime
+
 import tensorflow as tf
 
 import gym
@@ -23,11 +25,14 @@ from experience import ReplayBuffer
 from noise import NormalActionNoise
 from agents.td3_ddpg import TD3DDPG
 
+from utils.general import create_run_directory, save_config
+
 import pickle
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--env_name', required=True, type=str,
                     choices=['cartpole','pendulum', 'cheetah'])
+parser.add_argument('--output_dir', required=True, help="Base directory for storing run outputs")
 parser.add_argument('--runs', type=int, default=1)
 parser.add_argument('--save_as', type=str, default='results')
 parser.add_argument('--num_episodes', type=int, default=2000)
@@ -37,7 +42,7 @@ parser.add_argument('--seed', type=int, default=7)
 parser.add_argument('--record', action='store_true')
 parser.add_argument('--eval_from_checkpoint', action="store_true")
 
-def learn(env, config, num_episodes = 5000, num_eval_final = 50, batch_size = 100, seed = 7, run=0, record=False):
+def learn(env, config, run_dir, num_episodes = 5000, num_eval_final = 50, batch_size = 100, seed = 7, run=0, record=False):
     """
     Apply procedures of training for a DDPG.
     """
@@ -48,7 +53,7 @@ def learn(env, config, num_episodes = 5000, num_eval_final = 50, batch_size = 10
     config.batch_size = batch_size
 
     # initialize
-    agent = TD3DDPG(env, config, experience, action_noise = noise, run=run)
+    agent = TD3DDPG(env, config, run_dir, experience, action_noise = noise, run=run)
     agent.initialize()
         
     # Evaluate untrained policy
@@ -177,39 +182,44 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     config = get_config(args.env_name)
-    if not os.path.exists(config.checkpoint_dir):
-        os.makedirs(config.checkpoint_dir)
     seed = args.seed
     env = gym.make(config.env_name)
     env.reset(seed=seed)
     tf.random.set_seed(seed)
     np.random.seed(seed)
 
+    agent_dir = os.path.join(args.output_dir, 'td3')
+
     if args.eval_from_checkpoint:
         for i in range(args.runs):
             # train model
             eval_from_checkpoint(env, config, run=i)
     else:
-        outfile = "{}.pickle".format(args.save_as)
-        outpath = os.path.join(config.output_path, "td3ddpg",  outfile)
-        runs = {}
+        outpaths = {}
         for i in range(args.runs):
             # train model
-            stats_dict = learn(env, config, 
+
+            # Create a unique directory for this run
+            run_dir = create_run_directory(agent_dir)
+            save_config(vars(args), run_dir)
+            stats_dict = learn(env, config, run_dir, 
                         num_episodes=args.num_episodes, 
                         num_eval_final=args.num_eval_final, 
                         batch_size=args.batch_size,
                         seed=seed,
                         run=i,
                         record = args.record)
-            runs[i] = stats_dict
-        # save dictionary 
-        pickle_out = open(outpath,"wb")
-        pickle.dump(runs, pickle_out)
-        pickle_out.close()
-        pickle_in = open(outpath,"rb")
-        example_dict = pickle.load(pickle_in)
-        print("Stored the following runs:")
-        for key, val in example_dict.items():
-            print("run {} | number of keys in stats dict: {}".format(key, len(val.keys())))
+            outdir = os.path.join(run_dir, "results")
+            # save dictionary 
+            outpath = os.path.join(outdir, f"results.pickle")
+            pickle_out = open(outpath,"wb")
+            pickle.dump(stats_dict, pickle_out)
+            pickle_out.close()
+            outpaths[i] = outpath
+        
+        for i, outpath in outpaths.items():
+            pickle_in = open(outpath,"rb")
+            stats_dict = pickle.load(pickle_in)
+            print("Stored the following runs:")
+            print(f"run {i} | number of keys in stats dict: {len(stats_dict.keys())}")
 

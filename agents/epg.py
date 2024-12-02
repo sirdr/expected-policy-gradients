@@ -120,9 +120,9 @@ class EPG(PG):
     """
     Class for Expected Policy Gradients, Inherets from the generic Policy Gradient class
     """
-    def __init__(self, env, config, actor=None, critic=None, quadrature = 'riemann', logger=None, num_actions=1000, run=0, learn_std=False):
+    def __init__(self, env, config, run_dir, actor=None, critic=None, quadrature = 'riemann', logger=None, num_actions=1000, run=0, learn_std=False):
 
-        super().__init__(env, config, run=run, logger=logger)
+        super().__init__(env, config, run_dir, run=run, logger=logger)
         self.agent_name = "epg-{}".format(quadrature)
         self.learn_std = learn_std
         if actor is None:
