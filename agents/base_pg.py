@@ -1,3 +1,12 @@
+"""
+Notes and Credits: 
+
+Much of the structure and some of the functions in this file have been adapted
+from Homework 3 of the Winter 2019 version of Stanford's CS 234 taught by Emma Brunskill
+
+"""
+
+
 import os
 import argparse
 import sys
@@ -88,7 +97,6 @@ class PG(object):
     def add_actor_loss_op(self):
         """
         Compute the loss, averaged for a given batch.
-
         """
         raise NotImplementedError()
 
@@ -117,8 +125,6 @@ class PG(object):
     def add_summary(self):
         """
         Tensorboard stuff.
-
-        You don't have to change or use anything here.
         """
         # extra placeholders to log stuff from python
         self.avg_reward_placeholder = tf.placeholder(tf.float32, shape=(), name="avg_reward")
@@ -140,8 +146,6 @@ class PG(object):
     def init_averages(self):
         """
         Defines extra attributes for tensorboard.
-
-        You don't have to change or use anything here.
         """
         self.avg_reward = 0.
         self.max_reward = 0.
@@ -151,8 +155,6 @@ class PG(object):
     def update_averages(self, rewards, scores_eval):
         """
         Update the averages.
-
-        You don't have to change or use anything here.
 
         Args:
             rewards: deque
@@ -168,8 +170,6 @@ class PG(object):
     def record_summary(self, t):
         """
         Add summary to tensorboard
-
-        You don't have to change or use anything here.
         """
 
         fd = {
@@ -179,6 +179,7 @@ class PG(object):
           self.eval_reward_placeholder: self.eval_reward,
         }
         summary = self.sess.run(self.merged, feed_dict=fd)
+        
         # tensorboard stuff
         self.file_writer.add_summary(summary, t)
 
@@ -242,19 +243,18 @@ class PG(object):
         """
         raise NotImplementedError()
 
-    # def evaluate(self, env=None, num_episodes=1):
-    #     """
-    #     Evaluates the return for num_episodes episodes.
-    #     Not used right now, all evaluation statistics are computed during training
-    #     episodes.
-    #     """
-    #     if env==None: env = self.env
-    #     paths, rewards = self.sample_path(env, num_episodes)
-    #     avg_reward = np.mean(rewards)
-    #     sigma_reward = np.sqrt(np.var(rewards) / len(rewards))
-    #     msg = "Average reward: {:04.2f} +/- {:04.2f}".format(avg_reward, sigma_reward)
-    #     self.logger.info(msg)
-    #     return avg_reward
+    def evaluate(self, env=None, num_episodes=1):
+        """
+        Evaluates the return for num_episodes episodes.
+        """
+        if env==None: env = self.env
+        paths, rewards = self.sample_path(env, num_episodes)
+        avg_reward = np.mean(rewards)
+        sigma_reward = np.sqrt(np.var(rewards) / len(rewards))
+        msg = "Average reward: {:04.2f} +/- {:04.2f}".format(avg_reward, sigma_reward)
+        self.logger.info(msg)
+        return avg_reward
+
     def save_model(self):
         save_path = os.path.join("./",self.config.output_path, self.agent_name, "run-{}".format(self.run))
         if not os.path.exists(save_path):

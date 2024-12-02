@@ -174,29 +174,8 @@ class TD3DDPG(PG):
         self.init_target_actor_op = tf.group(*[tf.assign(target_v, v) for v, target_v in zip(actor_v_list, target_actor_v_list)])
 
     def build(self):
-        # Observation normalization.
-        # if self.normalize_observations:
-        #     with tf.variable_scope('obs_rms'):
-        #         self.obs_rms = RunningMeanStd(shape=self.observation_shape)
-        # else:
-        #     self.obs_rms = None
-        # normalized_obs0 = tf.clip_by_value(normalize(self.obs0, self.obs_rms),
-        #     self.obs_low, self.obs_high)
-        # normalized_obs1 = tf.clip_by_value(normalize(self.obs1, self.obs_rms),
-        #     self.obs_low, self.obs_high)
-
         # add placeholders
         self.add_placeholders_op()
-        # create policy net
-
-        # Create networks and core TF parts that are shared across setup parts.
-        # self.actor_tf = actor(normalized_obs0)
-        # self.normalized_critic_tf = critic(normalized_obs0, self.actions)
-        # self.critic_tf = denormalize(tf.clip_by_value(self.normalized_critic_tf, self.return_range[0], self.return_range[1]), self.ret_rms)
-        # self.normalized_critic_with_actor_tf = critic(normalized_obs0, self.actor_tf, reuse=True)
-        # self.critic_with_actor_tf = denormalize(tf.clip_by_value(self.normalized_critic_with_actor_tf, self.return_range[0], self.return_range[1]), self.ret_rms)
-        # Q_obs1 = denormalize(target_critic(normalized_obs1, target_actor(normalized_obs1)), self.ret_rms)
-        # self.target_Q = self.rewards + (1. - self.terminals1) * gamma * Q_obs1
 
         self.actor_output = self.actor(self.observation_placeholder, training=self.training_placeholder)
         self.target_actor_output = self.target_actor(self.next_observation_placeholder, training=self.training_placeholder)
@@ -295,13 +274,9 @@ class TD3DDPG(PG):
 
             self.update_critic(actions, observations, next_observations, rewards, dones)
 
-            #self.grad_norm 
-            #self.grad_norm 
-
             _, grad_norm = self.sess.run([self.train_op, self.grad_norm], feed_dict={
                         self.observation_placeholder : observations,
                         self.action_placeholder : actions})
-            #print("loss integrand: {}".format(loss_integrand))
 
             stats["grad_norms"].append(grad_norm)
 
