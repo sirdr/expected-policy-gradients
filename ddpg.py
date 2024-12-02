@@ -5,28 +5,19 @@ Author: Loren Amdahl-Culleton
 
 Notes and Credits: 
 
-Much of the structure and some of the functions in run_pg.py have been adapted
-from Homework 3 of the Winter 2019 version of Stanford's CS 234 taught by Emma Brunskill
-
+Some of the structure in this file has been adapted from Homework 3 of the 
+Winter 2019 version of Stanford's CS 234 taught by Emma Brunskill
 """
 
 
 import os
 import argparse
-import sys
-import logging
-import time
 import numpy as np
-from scipy import integrate
 
 import tensorflow as tf
 
 import gym
-import scipy.signal
 import os
-import time
-import inspect
-from utils.general import get_logger, Progbar, export_plot
 from config import get_config
 from experience import ReplayBuffer
 from noise import NormalActionNoise
@@ -46,23 +37,6 @@ parser.add_argument('--seed', type=int, default=7)
 parser.add_argument('--record', action='store_true')
 parser.add_argument('--eval_from_checkpoint', action="store_true")
 
-# def evaluate_policy(agent, eval_episodes=10):
-#     avg_reward = 0.
-#     for _ in range(eval_episodes):
-#         obs = env.reset()
-#         done = False
-#         while not done:
-#             action, _ = agent.act(np.array(obs), apply_noise=False, compute_q=False)
-#             obs, reward, done, _ = env.step(action)
-#             avg_reward += reward
-
-#     avg_reward /= eval_episodes
-
-#     print("---------------------------------------")
-#     print("Evaluation over {} episodes: {}".format(eval_episodes, avg_reward))
-#     print("---------------------------------------")
-#     return avg_reward
-
 def learn(env, config, num_episodes = 5000, num_eval_final = 50, batch_size = 100, seed = 7, run=0, record=False):
     """
     Apply procedures of training for a DDPG.
@@ -76,11 +50,6 @@ def learn(env, config, num_episodes = 5000, num_eval_final = 50, batch_size = 10
     # initialize
     agent = TD3DDPG(env, config, experience, action_noise = noise, run=run)
     agent.initialize()
-
-    # record one game at the beginning
-    # if agent.config.record:
-    #     agent.record()
-    # model
         
     # Evaluate untrained policy
     agent.evaluate_policy()
@@ -114,12 +83,6 @@ def learn(env, config, num_episodes = 5000, num_eval_final = 50, batch_size = 10
                 stats["episode_rewards"].append(episode_reward)
                 stats["cummulative_timesteps"].append(total_timesteps)
                 stats["episode_timesteps"].append(episode_timesteps)
-            
-            # # Evaluate episode
-            # if timesteps_since_eval >= config.eval_freq:
-            #     timesteps_since_eval %= config.eval_freq
-            #     agent.evaluate_policy()
-                
             
             # Reset environment
             observation = env.reset()
