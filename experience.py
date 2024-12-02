@@ -1,7 +1,8 @@
 import numpy as np
 
-# Code based on: 
-# https://github.com/sfujim/TD3/blob/master/utils.py
+"""
+Code based on: https://github.com/sfujim/TD3/blob/master/utils.py
+"""
 
 # Expects tuples of (state, next_state, action, reward, done)
 class ReplayBuffer(object):

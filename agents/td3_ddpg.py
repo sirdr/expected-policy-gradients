@@ -1,13 +1,13 @@
 # -*- coding: UTF-8 -*-
 
 """
-Expected Policy Gradients
 Author: Loren Amdahl-Culleton
 
 Notes and Credits: 
 
-Much of the structure and some of the functions in run_pg.py have been adapted
-from Homework 3 of the Winter 2019 version of Stanford's CS 234 taught by Emma Brunskill
+evaluate_policy method has been adapted from Homework 3 
+of the Winter 2019 version of Stanford's CS 234 taught
+ by Emma Brunskill
 
 """
 
@@ -21,7 +21,7 @@ import tensorflow as tf
 import gym
 from config import get_config
 
-from .base_pg import PG, Model
+from .base_pg import PG
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--env_name', required=True, type=str,
@@ -91,10 +91,24 @@ class Critic(tf.keras.Model):
 
 
 class TD3DDPG(PG):
+    """Twin Delayed DDPG (TD3). 
+    Ref. Fujimoto, Scott et al. “Addressing Function Approximation Error 
+    in Actor-Critic Methods.” International Conference on Machine Learning (2018).
+
+    See https://arxiv.org/pdf/1802.09477 for additional details.
+
     """
-    Class for Expected Policy Gradients, Inherets from the generic Policy Gradient class
-    """
-    def __init__(self, env, config, experience, actor=None, critic=None, action_noise = None, logger=None, run=0):
+    def __init__(
+        self, 
+        env, 
+        config, 
+        experience, 
+        actor=None, 
+        critic=None, 
+        action_noise = None, 
+        logger=None, 
+        run=0
+        ) -> None:
         super().__init__(env, config, run=run, logger=logger)
         self.agent_name = "td3ddpg" # for model saving and restoring
         self.experience = experience
