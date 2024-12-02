@@ -19,8 +19,6 @@ from config import get_config
 
 from .base_pg import PG, Model
 
-from IPython import embed
-
 parser = argparse.ArgumentParser()
 parser.add_argument('--env_name', required=True, type=str,
                     choices=['cartpole','pendulum', 'cheetah'])

@@ -35,8 +35,6 @@ from agents.td3_ddpg import TD3DDPG
 
 import pickle
 
-from IPython import embed
-
 parser = argparse.ArgumentParser()
 parser.add_argument('--env_name', required=True, type=str,
                     choices=['cartpole','pendulum', 'cheetah'])

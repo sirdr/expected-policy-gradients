@@ -22,8 +22,6 @@ from agents.epg import EPG
 
 import pickle
 
-from IPython import embed
-
 parser = argparse.ArgumentParser()
 parser.add_argument('--env_name', required=True, type=str,
                     choices=['cartpole','pendulum', 'cheetah'])

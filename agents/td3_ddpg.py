@@ -31,8 +31,6 @@ import inspect
 from utils.general import get_logger, Progbar, export_plot
 from config import get_config
 
-from IPython import embed
-
 from .base_pg import PG, Model
 
 parser = argparse.ArgumentParser()
