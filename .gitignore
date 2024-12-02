@@ -3,3 +3,4 @@ __pycache__/
 results/
 *.pickle
 results_copy/
+.DS_Store

@@ -121,7 +121,7 @@ def get_trajectories(results):
 def lineplotCI(ax, x_data, y_data, low_CI, upper_CI, label):
     # Plot the data, set the linewidth, color and transparency of the
     # line, provide a label for the legend
-    ax.plot(x_data, y_data, lw = 1, color = '#539caf', alpha = 1, label = )
+    ax.plot(x_data, y_data, lw = 1, color = '#539caf', alpha = 1, label = "CI")
     # Shade the confidence interval
     ax.fill_between(sorted_x, low_CI, upper_CI, color = '#539caf', alpha = 0.4)
     # Label the axes and provide a title
