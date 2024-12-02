@@ -4,10 +4,10 @@ Final Project for Stanford's CS 234 (See Poster Below)
 
 ![image](./cs234_poster.jpg)
 
-To run DDPG on the `InvertedPendulum-v1` openAI gym environment using the model outlined in [this paper](https://arxiv.org/pdf/1802.09477.pdf) simply use:
+To run DDPG on the `InvertedPendulum-v4` openAI gym environment for `n` episodes using the model outlined in [this paper](https://arxiv.org/pdf/1802.09477.pdf) adn record a video of the resulting policy simply use:
 
 ```
-python ddpg.py --env_name pendulum --number
+python ddpg.py --env_name pendulum --num_episodes n --record
 ```
 
 The `--learn_std` flag uses a one-layer neural network to learn the standard deviation of the output actions given the state. Without this flag, the agent learns a single standard deviation for all states.
