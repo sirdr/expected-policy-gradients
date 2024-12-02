@@ -9,7 +9,7 @@ Final Project for Stanford's CS 234 (See Poster Below)
 To run DDPG on the `InvertedPendulum-v4` openAI gym environment for `n` episodes using the model outlined in [this paper](https://arxiv.org/pdf/1802.09477.pdf) and record a video of the resulting policy simply use:
 
 ```
-python ddpg.py --env_name pendulum --num_episodes n --record
+python ddpg.py --env_name pendulum --output_dir <directory name> --num_episodes n --record
 ```
 
 The `--learn_std` flag uses a one-layer neural network to learn the standard deviation of the output actions given the state. Without this flag, the agent learns a single standard deviation for all states.
@@ -27,9 +27,10 @@ Also note that if a given model was trained with the `--learn_std` flag you will
 
 ## Getting Graphs and Summary Statistics
 
+If you have been collecting run results in a given `output_dir` and want to analyze and compare performance of agents, simply run the following, supplying the given directory name. `base_dir` should be the same as whichever `output_dir` your results are in.
 
 ```
-python get_plots_and_statistics.py --env_name pendulum
+python get_plots_and_statistics.py --base_dir <directory name>
 ```
 
 ## Running on the Cloud
