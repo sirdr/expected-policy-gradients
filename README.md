@@ -17,6 +17,8 @@ The `--learn_std` flag uses a one-layer neural network to learn the standard dev
 
 ## Running Evaluation
 
+⚠️ ***Warning*** *`epp.py` currently breaking -- updates needed to support new version of tensorflow* 
+
 This command should only be used locally (or if you can figure out how to using the `Moniter` environment type on an AWS instance). In any case, running this code will evaluate the learned policy from the first training run of the given algorithm and record and save a video of its performance. If you have multiple training runs (i.e. you used `--runs [number of runs]` during training where `number of runs` is greater than 1) then simply change the run number for the number of runs you want to evaluate.
 
 ```
