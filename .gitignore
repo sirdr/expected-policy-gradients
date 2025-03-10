@@ -5,3 +5,4 @@ checkpoints/
 *.pickle
 results_copy/
 .DS_Store
+tf_reports/
